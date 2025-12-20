@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
     
     REVEAL_DATE: datetime = datetime(2024, 12, 24, 0, 0, 0)
-    PORT: int = 3000
+    PORT: int = 80
     CORS_ORIGINS: str = "http://localhost:5173,https://yourdomain.com"
     VERSION: str = "1.0.0"
     

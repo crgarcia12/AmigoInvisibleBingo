@@ -8,12 +8,18 @@
 # Login to ACR
 az acr login --name crgarbingoacr
 
-$version = "0.0.1"
+$version = "0.0.3"
 $imageName = "crgarbingoacr.azurecr.io/bingo-backend:$version"
 docker build -t $imageName .
 docker push $imageName
 
-docker run -d -p 3000:3000 --name bingo-backend $imageName
+docker run -d -p 3000:3000 `
+  -e COSMOS_ENDPOINT="https://crgar-bingo-db.documents.azure.com:443/" `
+  -e COSMOS_KEY="" `
+  -e COSMOS_DATABASE="AmigoInvisibleDB" `
+  -e COSMOS_CONTAINER="Predictions" `
+  --name bingo-backend `
+  $imageName
 ```
 
 ### What You Get
