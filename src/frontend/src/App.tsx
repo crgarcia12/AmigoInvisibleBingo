@@ -10,7 +10,6 @@ import {
   MenuItem,
   Button,
   Card,
-  CardContent,
   Alert,
   Chip,
   ThemeProvider,
@@ -21,7 +20,7 @@ import {
   CircularProgress,
   Snackbar,
 } from '@mui/material'
-import { CardGiftcard, Celebration, Visibility, Clear, DragIndicator, CloudOff } from '@mui/icons-material'
+import { Visibility, Clear, CloudOff } from '@mui/icons-material'
 import { api } from './api'
 import {
   DndContext,
@@ -55,7 +54,6 @@ const theme = createTheme({
 })
 
 const PARTICIPANTS = ['Miriam', 'Paula', 'Adriana', 'Lula', 'Diego', 'Carlos A', 'Padrino']
-const REVEAL_DATE = new Date('2024-12-24')
 
 interface Predictions {
   [key: string]: string
@@ -76,31 +74,34 @@ function DraggableName({ name, isUsed }: { name: string; isUsed: boolean }) {
 
   const style = {
     transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : isUsed ? 0.4 : 1,
+    opacity: isDragging ? 0.5 : isUsed ? 0.3 : 1,
   }
 
   return (
-    <Chip
+    <Box
       ref={setNodeRef}
-      label={name}
       {...listeners}
       {...attributes}
-      icon={<DragIndicator />}
       sx={{
         ...style,
         cursor: isUsed ? 'not-allowed' : 'grab',
-        fontSize: '1rem',
-        py: 2.5,
-        px: 1,
+        touchAction: 'none',
+        userSelect: 'none',
+        display: 'inline-block',
+        px: 1.5,
+        py: 0.5,
+        bgcolor: isUsed ? '#e0e0e0' : '#d32f2f',
+        color: isUsed ? '#666' : 'white',
+        borderRadius: 1,
+        fontSize: '0.875rem',
+        fontWeight: 500,
         '&:active': {
           cursor: isUsed ? 'not-allowed' : 'grabbing',
         },
-        touchAction: 'none',
-        userSelect: 'none',
       }}
-      color={isUsed ? 'default' : 'primary'}
-      variant={isUsed ? 'outlined' : 'filled'}
-    />
+    >
+      {name}
+    </Box>
   )
 }
 
@@ -111,49 +112,49 @@ function DropZone({ person, prediction, onRemove }: { person: string; prediction
   })
 
   return (
-    <Card
+    <Box
       ref={setNodeRef}
-      variant="outlined"
       sx={{
-        p: 2,
-        minHeight: 100,
-        background: isOver
-          ? 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)'
-          : prediction
-            ? 'linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%)'
-            : 'white',
-        border: isOver ? '2px dashed #1976d2' : '2px dashed #ccc',
-        transition: 'all 0.2s',
         display: 'flex',
-        flexDirection: 'column',
+        alignItems: 'center',
         gap: 1,
+        py: 1,
+        px: 1.5,
+        borderRadius: 1,
+        bgcolor: isOver ? '#e3f2fd' : prediction ? '#e8f5e9' : '#f5f5f5',
+        border: isOver ? '2px solid #1976d2' : '1px solid #ddd',
+        transition: 'all 0.2s',
+        minHeight: 44,
       }}
     >
-      <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" sx={{ mb: 1 }}>
-        ¿Quién es el amigo invisible de {person}?
+      <Typography sx={{ fontSize: '0.95rem', fontWeight: 500, minWidth: 60, color: '#333' }}>
+        {person} →
       </Typography>
       {prediction ? (
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Chip label={prediction} color="success" sx={{ fontSize: '1rem', py: 2 }} />
-          <IconButton size="small" onClick={onRemove} color="error">
-            <Clear />
+        <Box display="flex" alignItems="center" gap={0.5} flex={1}>
+          <Box
+            sx={{
+              px: 1.5,
+              py: 0.5,
+              bgcolor: '#388e3c',
+              color: 'white',
+              borderRadius: 1,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+            }}
+          >
+            {prediction}
+          </Box>
+          <IconButton size="small" onClick={onRemove} sx={{ ml: 'auto', p: 0.5 }}>
+            <Clear fontSize="small" />
           </IconButton>
         </Box>
       ) : (
-        <Box
-          sx={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'text.disabled',
-            fontStyle: 'italic',
-          }}
-        >
-          Arrastra un nombre aquí
-        </Box>
+        <Typography sx={{ fontSize: '0.8rem', color: '#999', fontStyle: 'italic' }}>
+          arrastra aquí
+        </Typography>
       )}
-    </Card>
+    </Box>
   )
 }
 
@@ -337,40 +338,31 @@ function App() {
           px: { xs: 1, md: 2 },
         }}
       >
-        <Container maxWidth="lg">
+        <Container maxWidth="sm">
           <Paper
-            elevation={6}
+            elevation={3}
             sx={{
-              p: { xs: 2, md: 4 },
-              borderRadius: 3,
-              background: 'linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%)',
+              p: 2,
+              borderRadius: 2,
+              background: 'white',
             }}
           >
-            <Box textAlign="center" mb={3}>
-              <Box display="flex" justifyContent="center" alignItems="center" gap={{ xs: 1, md: 2 }} mb={2} flexWrap="wrap">
-                <CardGiftcard sx={{ fontSize: { xs: 32, md: 48 }, color: 'primary.main' }} />
-                <Typography variant="h4" component="h1" fontWeight="bold" color="primary" sx={{ fontSize: { xs: '1.5rem', md: '2.5rem' } }}>
-                  🎄 Bingo del Amigo Invisible 🎁
-                </Typography>
-                <Celebration sx={{ fontSize: { xs: 32, md: 48 }, color: 'secondary.main' }} />
-              </Box>
-              <Typography variant="body1" color="text.secondary" gutterBottom sx={{ fontSize: { xs: '0.9rem', md: '1.1rem' } }}>
-                ¿Quién es el amigo invisible de quién?
+            <Box textAlign="center" mb={2}>
+              <Typography variant="h5" component="h1" fontWeight="bold" color="primary" sx={{ fontSize: { xs: '1.2rem', md: '1.8rem' }, mb: 1 }}>
+                🎄 Bingo Amigo Invisible
               </Typography>
-              <Box display="flex" gap={1} justifyContent="center" flexWrap="wrap" mt={1}>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
+                Revelación: 24 Dic
+              </Typography>
+              {!isOnline && (
                 <Chip
-                  label={`Revelación: 24 de Diciembre ${REVEAL_DATE.getFullYear()}`}
-                  color="secondary"
+                  icon={<CloudOff />}
+                  label="Sin conexión"
+                  color="error"
+                  size="small"
+                  sx={{ mt: 0.5 }}
                 />
-                {!isOnline && (
-                  <Chip
-                    icon={<CloudOff />}
-                    label="Sin conexión al servidor"
-                    color="error"
-                    size="small"
-                  />
-                )}
-              </Box>
+              )}
             </Box>
 
             {loading && (
@@ -381,7 +373,7 @@ function App() {
 
             {!submitted && !loading ? (
               <Box>
-                <FormControl fullWidth sx={{ mb: 3 }}>
+                <FormControl fullWidth sx={{ mb: 2 }} size="small">
                   <InputLabel>Tu Nombre</InputLabel>
                   <Select value={userName} onChange={(e) => setUserName(e.target.value)} label="Tu Nombre" disabled={loading}>
                     {PARTICIPANTS.map((name) => (
@@ -399,30 +391,27 @@ function App() {
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                   >
-                    <Box mb={3}>
-                      <Typography variant="h6" gutterBottom color="primary" sx={{ mb: 2 }}>
-                        📋 Nombres disponibles (arrastra hacia abajo):
+                    <Box mb={2}>
+                      <Typography variant="body2" gutterBottom sx={{ fontSize: '0.8rem', fontWeight: 600, mb: 1 }}>
+                        Nombres:
                       </Typography>
                       <Paper
-                        elevation={2}
+                        elevation={1}
                         sx={{
-                          p: 2,
-                          background: 'linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%)',
-                          border: '2px solid #ffc107',
+                          p: 1.5,
+                          bgcolor: '#fff9e6',
+                          border: '1px solid #ffc107',
                         }}
                       >
-                        <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                        <Box display="flex" flexWrap="wrap" gap={1}>
                           {PARTICIPANTS.map((name) => (
                             <DraggableName key={name} name={name} isUsed={usedNames.has(name)} />
                           ))}
-                        </Stack>
+                        </Box>
                       </Paper>
                     </Box>
 
-                    <Typography variant="h6" gutterBottom color="primary" sx={{ mb: 2 }}>
-                      🎯 Haz tus predicciones:
-                    </Typography>
-                    <Stack spacing={2}>
+                    <Stack spacing={1}>
                       {PARTICIPANTS.map((person) => (
                         <DropZone
                           key={person}
@@ -435,29 +424,32 @@ function App() {
 
                     <DragOverlay>
                       {activeDrag ? (
-                        <Chip
-                          label={activeDrag}
-                          color="primary"
+                        <Box
                           sx={{
-                            fontSize: '1rem',
-                            py: 2.5,
-                            px: 1,
-                            cursor: 'grabbing',
+                            px: 1.5,
+                            py: 0.5,
+                            bgcolor: '#d32f2f',
+                            color: 'white',
+                            borderRadius: 1,
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
                             opacity: 0.9,
                           }}
-                        />
+                        >
+                          {activeDrag}
+                        </Box>
                       ) : null}
                     </DragOverlay>
 
-                    <Box mt={3} textAlign="center">
+                    <Box mt={2} textAlign="center">
                       <Button
                         variant="contained"
-                        size="large"
+                        size="medium"
                         onClick={handleSubmit}
                         disabled={loading || !isOnline}
-                        sx={{ px: 6, py: 1.5 }}
+                        sx={{ px: 4 }}
                       >
-                        {loading ? <CircularProgress size={24} /> : 'Guardar Predicciones'}
+                        {loading ? <CircularProgress size={20} /> : 'Guardar'}
                       </Button>
                     </Box>
                   </DndContext>
@@ -465,59 +457,57 @@ function App() {
               </Box>
             ) : !loading ? (
               <Box textAlign="center">
-                <Alert severity="success" sx={{ mb: 3 }}>
-                  ¡Tus predicciones han sido guardadas! Puedes modificarlas hasta el 24 de diciembre.
+                <Alert severity="success" sx={{ mb: 2, py: 0.5 }}>
+                  ✅ Guardado
                 </Alert>
-                <Button variant="outlined" onClick={handleReset}>
-                  Modificar mis predicciones
+                <Button variant="outlined" size="small" onClick={handleReset}>
+                  Modificar
                 </Button>
               </Box>
             ) : null}
 
             {submittedCount > 0 && (
-              <Box mt={4}>
-                <Typography variant="h6" gutterBottom color="primary">
-                  Han participado: {submittedCount} de {PARTICIPANTS.length}
+              <Box mt={2}>
+                <Typography variant="caption" color="text.secondary" display="block" textAlign="center">
+                  Participantes: {submittedCount}/{PARTICIPANTS.length}
                 </Typography>
               </Box>
             )}
 
-            <Box mt={4}>
+            <Box mt={2}>
               <Button
-                variant="contained"
+                variant="outlined"
                 color="secondary"
                 startIcon={<Visibility />}
                 fullWidth
-                size="large"
+                size="small"
                 onClick={handleShowResults}
                 disabled={loading || !isOnline}
               >
-                {loading ? <CircularProgress size={24} /> : `${showResults ? 'Ocultar' : 'Ver'} Todas las Predicciones`}
+                {loading ? <CircularProgress size={20} /> : `${showResults ? 'Ocultar' : 'Ver'} Resultados`}
               </Button>
 
               {showResults && canReveal && (
-                <Box mt={3}>
+                <Box mt={2}>
                   {allPredictions.map((userPred) => (
-                    <Card key={userPred.userName} sx={{ mb: 2 }}>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom color="primary">
-                          Predicciones de {userPred.userName}
-                        </Typography>
-                        <Stack spacing={1}>
-                          {Object.entries(userPred.predictions).map(([person, prediction]) => (
-                            <Typography variant="body2" key={person}>
-                              <strong>{person}:</strong> {prediction}
-                            </Typography>
-                          ))}
-                        </Stack>
-                      </CardContent>
+                    <Card key={userPred.userName} sx={{ mb: 1.5, p: 1.5 }}>
+                      <Typography variant="subtitle2" gutterBottom color="primary" sx={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                        {userPred.userName}
+                      </Typography>
+                      <Stack spacing={0.5}>
+                        {Object.entries(userPred.predictions).map(([person, prediction]) => (
+                          <Typography variant="caption" key={person} sx={{ fontSize: '0.8rem' }}>
+                            {person} → {prediction}
+                          </Typography>
+                        ))}
+                      </Stack>
                     </Card>
                   ))}
                 </Box>
               )}
               {showResults && !canReveal && (
-                <Alert severity="info" sx={{ mt: 3 }}>
-                  Los resultados se revelarán el 24 de diciembre
+                <Alert severity="info" sx={{ mt: 2, py: 0.5, fontSize: '0.8rem' }}>
+                  Resultados el 24 de diciembre
                 </Alert>
               )}
             </Box>

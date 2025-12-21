@@ -1,10 +1,10 @@
-$version = "0.0.8" 
+$version = "0.0.10" 
 
 $registry = "crgarbingoacr.azurecr.io/"
 $backendImage = $registry + "bingo-backend:" + $version
 $frontendImage = $registry +"bingo-frontend:" + $version
 
-#az acr login --name $registry.TrimEnd('/')
+az acr login --name $registry.TrimEnd('/')
 
 # Build and push frontend and backend images
 cd frontend
