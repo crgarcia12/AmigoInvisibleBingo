@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, validator
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from datetime import datetime
 import uuid
 
@@ -98,4 +98,45 @@ class ErrorResponse(BaseModel):
     success: bool = False
     message: str
     errorCode: Optional[str] = None
+
+
+# Quiz models
+class Question(BaseModel):
+    """Quiz question model"""
+    id: str
+    question: str
+    options: List[str]
+    correctAnswer: str
+
+
+class QuizAnswerInput(BaseModel):
+    """Input model for submitting a quiz answer"""
+    userName: str
+    questionId: str
+    answer: str
+
+    @validator('userName')
+    def validate_user_name(cls, v):
+        if v not in VALID_PARTICIPANTS:
+            raise ValueError(f'userName must be one of: {", ".join(VALID_PARTICIPANTS)}')
+        return v
+
+
+class QuizAnswer(BaseModel):
+    """Quiz answer stored in database"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    userName: str
+    questionId: str
+    answer: str
+    isCorrect: bool
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserQuizScore(BaseModel):
+    """Quiz score for a user"""
+    userName: str
+    correctAnswers: int
+    totalQuestions: int
+    score: float
+    answers: List[QuizAnswer]
     timestamp: datetime = Field(default_factory=datetime.utcnow)

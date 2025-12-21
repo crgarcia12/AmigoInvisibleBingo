@@ -22,6 +22,7 @@ import {
 } from '@mui/material'
 import { Visibility, Clear, CloudOff } from '@mui/icons-material'
 import { api } from './api'
+import type { QuizQuestion } from './api'
 import {
   DndContext,
   DragOverlay,
@@ -173,26 +174,8 @@ function App() {
   const [showQuiz, setShowQuiz] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [quizScore, setQuizScore] = useState(0)
-  const [quizAnswers, setQuizAnswers] = useState<string[]>([])
-
-  // Quiz questions (simple example, you can expand this)
-  const quizQuestions = [
-    {
-      question: "¿Cuántas personas participan en el amigo invisible?",
-      options: ["5", "6", "7", "8"],
-      correct: "7"
-    },
-    {
-      question: "¿Cuándo se revelan los resultados?",
-      options: ["23 Dic", "24 Dic", "25 Dic", "31 Dic"],
-      correct: "24 Dic"
-    },
-    {
-      question: "¿Cuál es el objetivo del juego?",
-      options: ["Adivinar quién es el amigo invisible de cada persona", "Comprar regalos", "Hacer una fiesta", "Ninguna"],
-      correct: "Adivinar quién es el amigo invisible de cada persona"
-    }
-  ]
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
+  const [loadingQuiz, setLoadingQuiz] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -216,8 +199,23 @@ function App() {
   useEffect(() => {
     if (userName) {
       loadUserPredictions()
+      // Cargar preguntas del quiz para verificar si hay pendientes
+      checkPendingQuizQuestions()
     }
   }, [userName])
+
+  const checkPendingQuizQuestions = async () => {
+    try {
+      const questions = await api.getQuizQuestions(userName)
+      // Si hay preguntas pendientes y ya envió predicciones
+      if (questions.length > 0) {
+        // El usuario tiene preguntas pendientes
+        // Por ahora no hacemos nada, pero podríamos mostrar un botón para continuar
+      }
+    } catch (err) {
+      console.error('Error checking quiz status:', err)
+    }
+  }
 
   const checkHealth = async () => {
     const healthy = await api.healthCheck()
@@ -253,6 +251,24 @@ function App() {
     } catch (err) {
       console.error('Error loading status:', err)
       // No afecta el estado online
+    }
+  }
+
+  const loadQuizQuestions = async () => {
+    try {
+      setLoadingQuiz(true)
+      const questions = await api.getQuizQuestions(userName)
+      setQuizQuestions(questions)
+      
+      // Si no hay preguntas pendientes, no mostrar el quiz
+      if (questions.length === 0) {
+        setShowQuiz(false)
+      }
+    } catch (err) {
+      console.error('Error loading quiz questions:', err)
+      setError('Error al cargar las preguntas del quiz')
+    } finally {
+      setLoadingQuiz(false)
     }
   }
 
@@ -318,11 +334,11 @@ function App() {
       setSubmitted(true)
       setError(null)
       
-      // Iniciar el quiz después de guardar
+      // Load quiz questions and start quiz
+      await loadQuizQuestions()
       setShowQuiz(true)
       setCurrentQuestion(0)
       setQuizScore(0)
-      setQuizAnswers([])
       
       await loadParticipantsStatus()
     } catch (err) {
@@ -335,23 +351,42 @@ function App() {
     }
   }
 
-  const handleQuizAnswer = (answer: string) => {
-    const correct = quizQuestions[currentQuestion].correct
-    const newAnswers = [...quizAnswers, answer]
-    setQuizAnswers(newAnswers)
-    
-    if (answer === correct) {
-      setQuizScore(quizScore + 1)
-    }
+  const handleQuizAnswer = async (answer: string) => {
+    if (!quizQuestions[currentQuestion]) return
 
-    if (currentQuestion < quizQuestions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1)
-    } else {
-      // Quiz terminado
-      setTimeout(() => {
-        setShowQuiz(false)
-        setSubmitted(false)
-      }, 2000)
+    try {
+      // Submit answer to server
+      const result = await api.submitQuizAnswer(userName, quizQuestions[currentQuestion].id, answer)
+      
+      if (result.isCorrect) {
+        setQuizScore(quizScore + 1)
+      }
+
+      // Move to next question or finish
+      if (currentQuestion < quizQuestions.length - 1) {
+        setCurrentQuestion(currentQuestion + 1)
+      } else {
+        // Quiz finished
+        setTimeout(() => {
+          setShowQuiz(false)
+          setSubmitted(false)
+        }, 2000)
+      }
+    } catch (err) {
+      console.error('Error submitting quiz answer:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Error al guardar la respuesta'
+      
+      // Si la pregunta ya fue contestada, pasar a la siguiente
+      if (errorMessage.includes('already been answered')) {
+        if (currentQuestion < quizQuestions.length - 1) {
+          setCurrentQuestion(currentQuestion + 1)
+        } else {
+          setShowQuiz(false)
+          setSubmitted(false)
+        }
+      } else {
+        setError(errorMessage)
+      }
     }
   }
 
@@ -512,37 +547,49 @@ function App() {
 
             {showQuiz && (
               <Box mt={2}>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem', fontWeight: 600, mb: 2 }}>
-                  🎮 Quiz - {userName}
-                </Typography>
-                <Card sx={{ p: 2, mb: 2 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.85rem', mb: 0.5, color: 'text.secondary' }}>
-                    Pregunta {currentQuestion + 1} de {quizQuestions.length}
-                  </Typography>
-                  <Typography variant="subtitle1" sx={{ fontSize: '0.95rem', fontWeight: 500, mb: 2 }}>
-                    {quizQuestions[currentQuestion].question}
-                  </Typography>
-                  <Stack spacing={1}>
-                    {quizQuestions[currentQuestion].options.map((option, index) => (
-                      <Button
-                        key={index}
-                        variant="outlined"
-                        onClick={() => handleQuizAnswer(option)}
-                        sx={{
-                          justifyContent: 'flex-start',
-                          textAlign: 'left',
-                          py: 1,
-                          fontSize: '0.85rem',
-                        }}
-                      >
-                        {option}
-                      </Button>
-                    ))}
-                  </Stack>
-                </Card>
-                {currentQuestion === quizQuestions.length - 1 && quizAnswers.length === quizQuestions.length && (
-                  <Alert severity="success" sx={{ mt: 1 }}>
-                    ¡Quiz completado! Puntuación: {quizScore}/{quizQuestions.length}
+                {loadingQuiz ? (
+                  <Box display="flex" justifyContent="center" my={4}>
+                    <CircularProgress />
+                  </Box>
+                ) : quizQuestions.length > 0 && quizQuestions[currentQuestion] ? (
+                  <>
+                    <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem', fontWeight: 600, mb: 2 }}>
+                      🎮 Quiz - {userName}
+                    </Typography>
+                    <Card sx={{ p: 2, mb: 2 }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.85rem', mb: 0.5, color: 'text.secondary' }}>
+                        Pregunta {currentQuestion + 1} de {quizQuestions.length}
+                      </Typography>
+                      <Typography variant="subtitle1" sx={{ fontSize: '0.95rem', fontWeight: 500, mb: 2 }}>
+                        {quizQuestions[currentQuestion].question}
+                      </Typography>
+                      <Stack spacing={1}>
+                        {quizQuestions[currentQuestion].options.map((option, index) => (
+                          <Button
+                            key={index}
+                            variant="outlined"
+                            onClick={() => handleQuizAnswer(option)}
+                            sx={{
+                              justifyContent: 'flex-start',
+                              textAlign: 'left',
+                              py: 1,
+                              fontSize: '0.85rem',
+                            }}
+                          >
+                            {option}
+                          </Button>
+                        ))}
+                      </Stack>
+                    </Card>
+                    {currentQuestion === quizQuestions.length - 1 && quizScore !== null && (
+                      <Alert severity="success" sx={{ mt: 1 }}>
+                        ¡Quiz completado! Puntuación: {quizScore}/{quizQuestions.length}
+                      </Alert>
+                    )}
+                  </>
+                ) : (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    No hay preguntas disponibles
                   </Alert>
                 )}
               </Box>

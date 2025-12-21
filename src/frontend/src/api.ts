@@ -32,6 +32,30 @@ interface StatusResponse {
   participants: ParticipantStatus[]
 }
 
+interface QuizQuestion {
+  id: string
+  question: string
+  options: string[]
+}
+
+interface QuizAnswerResponse {
+  questionId: string
+  isCorrect: boolean
+}
+
+interface QuizScoreResponse {
+  userName: string
+  correctAnswers: number
+  totalQuestions: number
+  score: number
+  answers: Array<{
+    questionId: string
+    answer: string
+    isCorrect: boolean
+    timestamp: string
+  }>
+}
+
 const headers = {
   'Content-Type': 'application/json',
 }
@@ -125,4 +149,60 @@ export const api = {
       return false
     }
   },
+
+  async getQuizQuestions(userName: string): Promise<QuizQuestion[]> {
+    const response = await fetch(`${API_BASE_URL}/api/quiz/questions/${encodeURIComponent(userName)}`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get quiz questions')
+    }
+
+    const result: ApiResponse<QuizQuestion[]> = await response.json()
+    return result.data || []
+  },
+
+  async submitQuizAnswer(userName: string, questionId: string, answer: string): Promise<QuizAnswerResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/quiz/answer`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ userName, questionId, answer }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to submit quiz answer')
+    }
+
+    const result: ApiResponse<QuizAnswerResponse> = await response.json()
+    if (!result.success || !result.data) {
+      throw new Error(result.message || 'Failed to submit quiz answer')
+    }
+
+    return result.data
+  },
+
+  async getUserQuizScore(userName: string): Promise<QuizScoreResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/quiz/score/${encodeURIComponent(userName)}`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get quiz score')
+    }
+
+    const result: ApiResponse<QuizScoreResponse> = await response.json()
+    if (!result.success || !result.data) {
+      throw new Error(result.message || 'Failed to get quiz score')
+    }
+
+    return result.data
+  },
 }
+
+export type { QuizQuestion, QuizAnswerResponse, QuizScoreResponse }

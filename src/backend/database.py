@@ -1,7 +1,7 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions
-from models import Prediction, CorrectAnswers, VALID_PARTICIPANTS
+from models import Prediction, CorrectAnswers, VALID_PARTICIPANTS, QuizAnswer
 from config import settings
 
 
@@ -152,6 +152,47 @@ class Database:
         # Sort by score descending
         scores.sort(key=lambda x: x['score'], reverse=True)
         return scores
+    
+    def save_quiz_answer(self, quiz_answer: QuizAnswer) -> QuizAnswer:
+        """Save a quiz answer"""
+        quiz_answer.timestamp = datetime.utcnow()
+        
+        # Prepare document
+        doc = quiz_answer.dict()
+        doc['id'] = f"quiz_answer_{quiz_answer.userName}_{quiz_answer.questionId}"
+        doc['type'] = "quiz_answer"  # Partition key
+        doc['timestamp'] = doc['timestamp'].isoformat()
+        
+        # Upsert to Cosmos DB
+        self.container.upsert_item(doc)
+        return quiz_answer
+    
+    def get_user_quiz_answers(self, user_name: str) -> List[QuizAnswer]:
+        """Get all quiz answers for a user"""
+        query = f"SELECT * FROM c WHERE c.type = 'quiz_answer' AND c.userName = '{user_name}'"
+        items = list(self.container.query_items(query=query, enable_cross_partition_query=True))
+        
+        answers = []
+        for item in items:
+            item['timestamp'] = datetime.fromisoformat(item['timestamp'])
+            answers.append(QuizAnswer(**item))
+        
+        return answers
+    
+    def get_all_quiz_answers(self) -> Dict[str, List[QuizAnswer]]:
+        """Get all quiz answers grouped by user"""
+        query = "SELECT * FROM c WHERE c.type = 'quiz_answer'"
+        items = list(self.container.query_items(query=query, enable_cross_partition_query=True))
+        
+        answers_by_user = {}
+        for item in items:
+            item['timestamp'] = datetime.fromisoformat(item['timestamp'])
+            answer = QuizAnswer(**item)
+            if answer.userName not in answers_by_user:
+                answers_by_user[answer.userName] = []
+            answers_by_user[answer.userName].append(answer)
+        
+        return answers_by_user
 
 
 # Global database instance

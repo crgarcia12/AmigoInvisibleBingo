@@ -6,9 +6,37 @@ from typing import Dict
 from config import settings
 from models import (
     PredictionInput, Prediction, AnswersInput, CorrectAnswers,
-    ParticipantStatus, Score, VALID_PARTICIPANTS
+    ParticipantStatus, Score, VALID_PARTICIPANTS, Question, QuizAnswerInput, QuizAnswer
 )
 from database import db
+
+
+# Hardcoded quiz questions
+QUIZ_QUESTIONS = [
+    Question(
+        id="q1",
+        question="¿Cuántas personas participan en el amigo invisible?",
+        options=["5", "6", "7", "8"],
+        correctAnswer="7"
+    ),
+    Question(
+        id="q2",
+        question="¿Cuándo se revelan los resultados?",
+        options=["23 Dic", "24 Dic", "25 Dic", "31 Dic"],
+        correctAnswer="24 Dic"
+    ),
+    Question(
+        id="q3",
+        question="¿Cuál es el objetivo del juego?",
+        options=[
+            "Adivinar quién es el amigo invisible de cada persona",
+            "Comprar regalos",
+            "Hacer una fiesta",
+            "Ninguna"
+        ],
+        correctAnswer="Adivinar quién es el amigo invisible de cada persona"
+    )
+]
 
 
 app = FastAPI(
@@ -217,6 +245,131 @@ async def get_scores():
         "canReveal": True,
         "hasCorrectAnswers": True,
         "data": scores
+    }
+
+
+@app.get("/api/quiz/questions/{userName}")
+async def get_quiz_questions(userName: str):
+    """Get quiz questions for a user (only unanswered ones)"""
+    # Validate userName
+    if userName not in VALID_PARTICIPANTS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid userName. Must be one of: {', '.join(VALID_PARTICIPANTS)}"
+        )
+    
+    # Get user's already answered questions
+    answered_questions = db.get_user_quiz_answers(userName)
+    answered_ids = {answer.questionId for answer in answered_questions}
+    
+    # Return only unanswered questions without the correct answer
+    questions_data = []
+    for q in QUIZ_QUESTIONS:
+        if q.id not in answered_ids:
+            questions_data.append({
+                "id": q.id,
+                "question": q.question,
+                "options": q.options
+            })
+    
+    return {
+        "success": True,
+        "data": questions_data
+    }
+
+
+@app.post("/api/quiz/answer", status_code=status.HTTP_201_CREATED)
+async def submit_quiz_answer(answer_input: QuizAnswerInput):
+    """Submit a quiz answer"""
+    # Check if user has already answered this question
+    existing_answers = db.get_user_quiz_answers(answer_input.userName)
+    if any(answer.questionId == answer_input.questionId for answer in existing_answers):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This question has already been answered"
+        )
+    
+    # Get the question to check the correct answer
+    question = next((q for q in QUIZ_QUESTIONS if q.id == answer_input.questionId), None)
+    
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Question not found"
+        )
+    
+    # Check if answer is correct
+    is_correct = answer_input.answer == question.correctAnswer
+    
+    # Create quiz answer
+    quiz_answer = QuizAnswer(
+        userName=answer_input.userName,
+        questionId=answer_input.questionId,
+        answer=answer_input.answer,
+        isCorrect=is_correct
+    )
+    
+    # Save to database
+    saved_answer = db.save_quiz_answer(quiz_answer)
+    
+    return {
+        "success": True,
+        "data": {
+            "questionId": saved_answer.questionId,
+            "isCorrect": saved_answer.isCorrect
+        }
+    }
+
+
+@app.get("/api/quiz/score/{userName}")
+async def get_user_quiz_score(userName: str):
+    """Get quiz score for a specific user"""
+    # Validate userName
+    if userName not in VALID_PARTICIPANTS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid userName. Must be one of: {', '.join(VALID_PARTICIPANTS)}"
+        )
+    
+    # Get user's answers
+    answers = db.get_user_quiz_answers(userName)
+    
+    if not answers:
+        return {
+            "success": True,
+            "data": {
+                "userName": userName,
+                "correctAnswers": 0,
+                "totalQuestions": 0,
+                "score": 0.0,
+                "answers": []
+            }
+        }
+    
+    # Calculate score
+    correct_count = sum(1 for a in answers if a.isCorrect)
+    total_count = len(answers)
+    score = round((correct_count / total_count) * 100, 2) if total_count > 0 else 0.0
+    
+    # Format answers
+    answers_data = []
+    for answer in answers:
+        answers_data.append({
+            "questionId": answer.questionId,
+            "answer": answer.answer,
+            "isCorrect": answer.isCorrect,
+            "timestamp": answer.timestamp.isoformat() + "Z"
+        })
+    
+    return {
+        "success": True,
+        "data": {
+            "userName": userName,
+            "correctAnswers": correct_count,
+            "totalQuestions": total_count,
+            "score": score,
+            "answers": answers_data
+        }
     }
 
 
