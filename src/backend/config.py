@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     
     REVEAL_DATE: datetime = datetime(2024, 12, 24, 0, 0, 0)
     PORT: int = 80
-    CORS_ORIGINS: str = "http://localhost:5173,https://yourdomain.com"
+    CORS_ORIGINS: str = "*"  # Allow all origins for now
     VERSION: str = "1.0.0"
     
     # Cosmos DB Configuration (from environment variables with defaults)

@@ -1,4 +1,4 @@
-$version = "0.0.6" 
+$version = "0.0.8" 
 
 $registry = "crgarbingoacr.azurecr.io/"
 $backendImage = $registry + "bingo-backend:" + $version
