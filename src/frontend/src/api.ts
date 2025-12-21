@@ -1,5 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-const API_KEY = import.meta.env.VITE_API_KEY || 'your-api-key-here'
+const API_BASE_URL = (window as any).ENV?.VITE_API_URL || import.meta.env.VITE_API_URL || ''
 
 interface Predictions {
   [key: string]: string
@@ -32,7 +31,6 @@ interface StatusResponse {
 
 const headers = {
   'Content-Type': 'application/json',
-  'X-API-Key': API_KEY,
 }
 
 export const api = {

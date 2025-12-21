@@ -290,7 +290,7 @@ function App() {
 
     try {
       setLoading(true)
-      const result = await api.submitPredictions(userName, predictions)
+      await api.submitPredictions(userName, predictions)
       setSubmitted(true)
       setError(null)
       
