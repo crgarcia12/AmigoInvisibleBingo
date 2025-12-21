@@ -176,6 +176,8 @@ function App() {
   const [quizScore, setQuizScore] = useState(0)
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
   const [loadingQuiz, setLoadingQuiz] = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
+  const [userQuizScore, setUserQuizScore] = useState<any>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -211,6 +213,14 @@ function App() {
       if (questions.length > 0) {
         // El usuario tiene preguntas pendientes
         // Por ahora no hacemos nada, pero podríamos mostrar un botón para continuar
+      } else {
+        // No hay preguntas pendientes, verificar si ya completó todo
+        const score = await api.getUserQuizScore(userName)
+        if (score.totalQuestions > 0) {
+          // Usuario ya completó todo el quiz
+          setUserQuizScore(score)
+          setShowSummary(true)
+        }
       }
     } catch (err) {
       console.error('Error checking quiz status:', err)
@@ -366,10 +376,18 @@ function App() {
       if (currentQuestion < quizQuestions.length - 1) {
         setCurrentQuestion(currentQuestion + 1)
       } else {
-        // Quiz finished
-        setTimeout(() => {
-          setShowQuiz(false)
-          setSubmitted(false)
+        // Quiz finished - load complete score and show summary
+        setTimeout(async () => {
+          try {
+            const score = await api.getUserQuizScore(userName)
+            setUserQuizScore(score)
+            setShowQuiz(false)
+            setShowSummary(true)
+          } catch (err) {
+            console.error('Error loading quiz score:', err)
+            setShowQuiz(false)
+            setSubmitted(false)
+          }
         }, 2000)
       }
     } catch (err) {
@@ -394,6 +412,8 @@ function App() {
     setUserName('')
     setPredictions({})
     setSubmitted(false)
+    setShowSummary(false)
+    setUserQuizScore(null)
   }
 
   const usedNames = new Set(Object.values(predictions))
@@ -463,7 +483,7 @@ function App() {
                   </Select>
                 </FormControl>
 
-                {userName && (
+                {userName && !showSummary && (
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -533,8 +553,88 @@ function App() {
                     </Box>
                   </DndContext>
                 )}
+
+                {userName && showSummary && userQuizScore && (
+                  <Box>
+                    <Alert severity="success" sx={{ mb: 2 }}>
+                      ✅ ¡Todo completado!
+                    </Alert>
+                    
+                    <Card sx={{ p: 2, mb: 2 }}>
+                      <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600, mb: 2 }}>
+                        🎯 Tus Predicciones
+                      </Typography>
+                      <Stack spacing={1}>
+                        {PARTICIPANTS.map((person) => (
+                          <Box
+                            key={person}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              p: 1,
+                              bgcolor: '#f5f5f5',
+                              borderRadius: 1,
+                            }}
+                          >
+                            <Typography sx={{ fontSize: '0.9rem', fontWeight: 500, minWidth: 80 }}>
+                              {person} →
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.9rem', color: '#388e3c', fontWeight: 500 }}>
+                              {predictions[person]}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Card>
+
+                    <Card sx={{ p: 2 }}>
+                      <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600, mb: 2 }}>
+                        📊 Resumen del Quiz
+                      </Typography>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Puntuación: <strong>{userQuizScore.correctAnswers}/{userQuizScore.totalQuestions}</strong> correctas
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Score: <strong>{userQuizScore.score.toFixed(1)}%</strong>
+                        </Typography>
+                      </Box>
+                      
+                      <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                        Tus respuestas:
+                      </Typography>
+                      <Stack spacing={1}>
+                        {userQuizScore.answers.map((answer: any, idx: number) => (
+                          <Box
+                            key={idx}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              p: 1,
+                              bgcolor: answer.isCorrect ? '#e8f5e9' : '#ffebee',
+                              borderRadius: 1,
+                              fontSize: '0.85rem',
+                            }}
+                          >
+                            <Typography sx={{ fontSize: '0.85rem' }}>
+                              {answer.isCorrect ? '✅' : '❌'} {answer.answer}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Card>
+
+                    <Box mt={2} textAlign="center">
+                      <Button variant="outlined" size="small" onClick={handleReset}>
+                        Volver
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
               </Box>
-            ) : !loading && !showQuiz ? (
+            ) : !loading && !showQuiz && !showSummary ? (
               <Box textAlign="center">
                 <Alert severity="success" sx={{ mb: 2, py: 0.5 }}>
                   ✅ Guardado
