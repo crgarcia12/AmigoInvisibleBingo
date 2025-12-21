@@ -170,6 +170,29 @@ function App() {
   const [submittedCount, setSubmittedCount] = useState(0)
   const [canReveal, setCanReveal] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
+  const [showQuiz, setShowQuiz] = useState(false)
+  const [currentQuestion, setCurrentQuestion] = useState(0)
+  const [quizScore, setQuizScore] = useState(0)
+  const [quizAnswers, setQuizAnswers] = useState<string[]>([])
+
+  // Quiz questions (simple example, you can expand this)
+  const quizQuestions = [
+    {
+      question: "¿Cuántas personas participan en el amigo invisible?",
+      options: ["5", "6", "7", "8"],
+      correct: "7"
+    },
+    {
+      question: "¿Cuándo se revelan los resultados?",
+      options: ["23 Dic", "24 Dic", "25 Dic", "31 Dic"],
+      correct: "24 Dic"
+    },
+    {
+      question: "¿Cuál es el objetivo del juego?",
+      options: ["Adivinar quién es el amigo invisible de cada persona", "Comprar regalos", "Hacer una fiesta", "Ninguna"],
+      correct: "Adivinar quién es el amigo invisible de cada persona"
+    }
+  ]
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -295,10 +318,11 @@ function App() {
       setSubmitted(true)
       setError(null)
       
-      // Mostrar mensaje de confirmación
-      setTimeout(() => {
-        setSubmitted(false)
-      }, 3000)
+      // Iniciar el quiz después de guardar
+      setShowQuiz(true)
+      setCurrentQuestion(0)
+      setQuizScore(0)
+      setQuizAnswers([])
       
       await loadParticipantsStatus()
     } catch (err) {
@@ -308,6 +332,26 @@ function App() {
       await checkHealth()
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleQuizAnswer = (answer: string) => {
+    const correct = quizQuestions[currentQuestion].correct
+    const newAnswers = [...quizAnswers, answer]
+    setQuizAnswers(newAnswers)
+    
+    if (answer === correct) {
+      setQuizScore(quizScore + 1)
+    }
+
+    if (currentQuestion < quizQuestions.length - 1) {
+      setCurrentQuestion(currentQuestion + 1)
+    } else {
+      // Quiz terminado
+      setTimeout(() => {
+        setShowQuiz(false)
+        setSubmitted(false)
+      }, 2000)
     }
   }
 
@@ -455,7 +499,7 @@ function App() {
                   </DndContext>
                 )}
               </Box>
-            ) : !loading ? (
+            ) : !loading && !showQuiz ? (
               <Box textAlign="center">
                 <Alert severity="success" sx={{ mb: 2, py: 0.5 }}>
                   ✅ Guardado
@@ -466,7 +510,45 @@ function App() {
               </Box>
             ) : null}
 
-            {submittedCount > 0 && (
+            {showQuiz && (
+              <Box mt={2}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem', fontWeight: 600, mb: 2 }}>
+                  🎮 Quiz - {userName}
+                </Typography>
+                <Card sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem', mb: 0.5, color: 'text.secondary' }}>
+                    Pregunta {currentQuestion + 1} de {quizQuestions.length}
+                  </Typography>
+                  <Typography variant="subtitle1" sx={{ fontSize: '0.95rem', fontWeight: 500, mb: 2 }}>
+                    {quizQuestions[currentQuestion].question}
+                  </Typography>
+                  <Stack spacing={1}>
+                    {quizQuestions[currentQuestion].options.map((option, index) => (
+                      <Button
+                        key={index}
+                        variant="outlined"
+                        onClick={() => handleQuizAnswer(option)}
+                        sx={{
+                          justifyContent: 'flex-start',
+                          textAlign: 'left',
+                          py: 1,
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        {option}
+                      </Button>
+                    ))}
+                  </Stack>
+                </Card>
+                {currentQuestion === quizQuestions.length - 1 && quizAnswers.length === quizQuestions.length && (
+                  <Alert severity="success" sx={{ mt: 1 }}>
+                    ¡Quiz completado! Puntuación: {quizScore}/{quizQuestions.length}
+                  </Alert>
+                )}
+              </Box>
+            )}
+
+            {submittedCount > 0 && !showQuiz && (
               <Box mt={2}>
                 <Typography variant="caption" color="text.secondary" display="block" textAlign="center">
                   Participantes: {submittedCount}/{PARTICIPANTS.length}

@@ -1,4 +1,7 @@
-const API_BASE_URL = (window as any).ENV?.VITE_API_URL || import.meta.env.VITE_API_URL || ''
+const windowEnv = (window as any).ENV?.VITE_API_URL
+const API_BASE_URL = (windowEnv && !windowEnv.includes('${')) 
+  ? windowEnv 
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
 
 interface Predictions {
   [key: string]: string
