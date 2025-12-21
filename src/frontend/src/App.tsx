@@ -473,44 +473,6 @@ function App() {
                 </Typography>
               </Box>
             )}
-
-            <Box mt={2}>
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<Visibility />}
-                fullWidth
-                size="small"
-                onClick={handleShowResults}
-                disabled={loading || !isOnline}
-              >
-                {loading ? <CircularProgress size={20} /> : `${showResults ? 'Ocultar' : 'Ver'} Resultados`}
-              </Button>
-
-              {showResults && canReveal && (
-                <Box mt={2}>
-                  {allPredictions.map((userPred) => (
-                    <Card key={userPred.userName} sx={{ mb: 1.5, p: 1.5 }}>
-                      <Typography variant="subtitle2" gutterBottom color="primary" sx={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                        {userPred.userName}
-                      </Typography>
-                      <Stack spacing={0.5}>
-                        {Object.entries(userPred.predictions).map(([person, prediction]) => (
-                          <Typography variant="caption" key={person} sx={{ fontSize: '0.8rem' }}>
-                            {person} → {prediction}
-                          </Typography>
-                        ))}
-                      </Stack>
-                    </Card>
-                  ))}
-                </Box>
-              )}
-              {showResults && !canReveal && (
-                <Alert severity="info" sx={{ mt: 2, py: 0.5, fontSize: '0.8rem' }}>
-                  Resultados el 24 de diciembre
-                </Alert>
-              )}
-            </Box>
           </Paper>
         </Container>
       </Box>
