@@ -56,6 +56,34 @@ interface QuizScoreResponse {
   }>
 }
 
+interface CombinedScore {
+  userName: string
+  quizCorrect: number
+  quizTotal: number
+  predictionsCorrect: number
+  predictionsTotal: number
+  totalCorrect: number
+  totalQuestions: number
+  score: number
+  hasAdminAnswers: boolean
+}
+
+interface ScoreboardEntry {
+  userName: string
+  quizCorrect: number
+  quizTotal: number
+  predictionsCorrect: number
+  predictionsTotal: number
+  totalCorrect: number
+  totalQuestions: number
+  score: number
+}
+
+interface ScoreboardResponse {
+  hasAdminAnswers: boolean
+  data: ScoreboardEntry[]
+}
+
 const headers = {
   'Content-Type': 'application/json',
 }
@@ -203,6 +231,73 @@ export const api = {
 
     return result.data
   },
+
+  async getCombinedScore(userName: string): Promise<CombinedScore> {
+    const response = await fetch(`${API_BASE_URL}/api/combined-score/${encodeURIComponent(userName)}`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get combined score')
+    }
+
+    const result: ApiResponse<CombinedScore> = await response.json()
+    if (!result.success || !result.data) {
+      throw new Error(result.message || 'Failed to get combined score')
+    }
+
+    return result.data
+  },
+
+  async getScoreboard(): Promise<ScoreboardResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/scoreboard`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get scoreboard')
+    }
+
+    const result: ApiResponse<ScoreboardResponse> = await response.json()
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to get scoreboard')
+    }
+
+    return {
+      hasAdminAnswers: result.data?.hasAdminAnswers || false,
+      data: result.data?.data || []
+    }
+  },
+
+  async setQuizCorrectAnswers(answers: Record<string, string>): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/admin/quiz-answers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ answers }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to set quiz correct answers')
+    }
+  },
+
+  async setCorrectAnswers(answers: Record<string, string>): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/admin/set-correct-answers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ answers }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to set correct answers')
+    }
+  },
 }
 
-export type { QuizQuestion, QuizAnswerResponse, QuizScoreResponse }
+export type { QuizQuestion, QuizAnswerResponse, QuizScoreResponse, CombinedScore, ScoreboardEntry, ScoreboardResponse }

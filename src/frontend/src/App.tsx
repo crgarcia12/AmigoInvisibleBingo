@@ -20,9 +20,11 @@ import {
   CircularProgress,
   Snackbar,
 } from '@mui/material'
-import { Visibility, Clear, CloudOff } from '@mui/icons-material'
+import { Clear, CloudOff } from '@mui/icons-material'
 import { api } from './api'
-import type { QuizQuestion } from './api'
+import type { QuizQuestion, CombinedScore } from './api'
+import Admin from './Admin'
+import Scoreboard from './Scoreboard'
 import {
   DndContext,
   DragOverlay,
@@ -58,12 +60,6 @@ const PARTICIPANTS = ['Miriam', 'Paula', 'Adriana', 'Lula', 'Diego', 'Carlos A',
 
 interface Predictions {
   [key: string]: string
-}
-
-interface UserPrediction {
-  userName: string
-  predictions: Predictions
-  timestamp: string
 }
 
 function DraggableName({ name, isUsed }: { name: string; isUsed: boolean }) {
@@ -160,16 +156,14 @@ function DropZone({ person, prediction, onRemove }: { person: string; prediction
 }
 
 function App() {
+  const [currentPage, setCurrentPage] = useState<'home' | 'admin' | 'scoreboard'>('home')
   const [userName, setUserName] = useState('')
   const [predictions, setPredictions] = useState<Predictions>({})
   const [submitted, setSubmitted] = useState(false)
-  const [showResults, setShowResults] = useState(false)
-  const [allPredictions, setAllPredictions] = useState<UserPrediction[]>([])
   const [activeDrag, setActiveDrag] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submittedCount, setSubmittedCount] = useState(0)
-  const [canReveal, setCanReveal] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [showQuiz, setShowQuiz] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState(0)
@@ -177,7 +171,7 @@ function App() {
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
   const [loadingQuiz, setLoadingQuiz] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
-  const [userQuizScore, setUserQuizScore] = useState<any>(null)
+  const [combinedScore, setCombinedScore] = useState<CombinedScore | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -215,10 +209,10 @@ function App() {
         // Por ahora no hacemos nada, pero podríamos mostrar un botón para continuar
       } else {
         // No hay preguntas pendientes, verificar si ya completó todo
-        const score = await api.getUserQuizScore(userName)
+        const score = await api.getCombinedScore(userName)
         if (score.totalQuestions > 0) {
-          // Usuario ya completó todo el quiz
-          setUserQuizScore(score)
+          // Usuario ya completó todo
+          setCombinedScore(score)
           setShowSummary(true)
         }
       }
@@ -279,21 +273,6 @@ function App() {
       setError('Error al cargar las preguntas del quiz')
     } finally {
       setLoadingQuiz(false)
-    }
-  }
-
-  const loadAllPredictions = async () => {
-    try {
-      setLoading(true)
-      const result = await api.getAllPredictions()
-      setCanReveal(result.canReveal)
-      setAllPredictions(result.data)
-      setShowResults(result.canReveal)
-    } catch (err) {
-      console.error('Error loading all predictions:', err)
-      setError(err instanceof Error ? err.message : 'Error loading predictions')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -376,15 +355,15 @@ function App() {
       if (currentQuestion < quizQuestions.length - 1) {
         setCurrentQuestion(currentQuestion + 1)
       } else {
-        // Quiz finished - load complete score and show summary
+        // Quiz finished - load combined score and show summary
         setTimeout(async () => {
           try {
-            const score = await api.getUserQuizScore(userName)
-            setUserQuizScore(score)
+            const score = await api.getCombinedScore(userName)
+            setCombinedScore(score)
             setShowQuiz(false)
             setShowSummary(true)
           } catch (err) {
-            console.error('Error loading quiz score:', err)
+            console.error('Error loading combined score:', err)
             setShowQuiz(false)
             setSubmitted(false)
           }
@@ -413,49 +392,61 @@ function App() {
     setPredictions({})
     setSubmitted(false)
     setShowSummary(false)
-    setUserQuizScore(null)
+    setCombinedScore(null)
   }
 
   const usedNames = new Set(Object.values(predictions))
 
-  const handleShowResults = async () => {
-    if (!showResults) {
-      await loadAllPredictions()
-    } else {
-      setShowResults(false)
-    }
-  }
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box
-        sx={{
-          minHeight: '100vh',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          py: { xs: 2, md: 4 },
-          px: { xs: 1, md: 2 },
-        }}
-      >
-        <Container maxWidth="sm">
-          <Paper
-            elevation={3}
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              background: 'white',
-            }}
-          >
-            <Box textAlign="center" mb={2}>
-              <Typography variant="h5" component="h1" fontWeight="bold" color="primary" sx={{ fontSize: { xs: '1.2rem', md: '1.8rem' }, mb: 1 }}>
-                🎄 Bingo Amigo Invisible
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
-                Revelación: 24 Dic
-              </Typography>
-              {!isOnline && (
-                <Chip
-                  icon={<CloudOff />}
+      
+      {currentPage === 'admin' ? (
+        <>
+          <Box sx={{ p: 2, bgcolor: 'background.default' }}>
+            <Button variant="outlined" onClick={() => setCurrentPage('home')}>
+              ← Volver al juego
+            </Button>
+          </Box>
+          <Admin />
+        </>
+      ) : currentPage === 'scoreboard' ? (
+        <>
+          <Box sx={{ p: 2, bgcolor: 'background.default' }}>
+            <Button variant="outlined" onClick={() => setCurrentPage('home')}>
+              ← Volver
+            </Button>
+          </Box>
+          <Scoreboard onBack={() => setCurrentPage('home')} />
+        </>
+      ) : (
+        <Box
+          sx={{
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            py: { xs: 2, md: 4 },
+            px: { xs: 1, md: 2 },
+          }}
+        >
+          <Container maxWidth="sm">
+            <Paper
+              elevation={3}
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                background: 'white',
+              }}
+            >
+              <Box textAlign="center" mb={2}>
+                <Typography variant="h5" component="h1" fontWeight="bold" color="primary" sx={{ fontSize: { xs: '1.2rem', md: '1.8rem' }, mb: 1 }}>
+                  🎄 Bingo Amigo Invisible
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem' }}>
+                  Revelación: 24 Dic
+                </Typography>
+                {!isOnline && (
+                  <Chip
+                    icon={<CloudOff />}
                   label="Sin conexión"
                   color="error"
                   size="small"
@@ -554,7 +545,7 @@ function App() {
                   </DndContext>
                 )}
 
-                {userName && showSummary && userQuizScore && (
+                {userName && showSummary && combinedScore && (
                   <Box>
                     <Alert severity="success" sx={{ mb: 2 }}>
                       ✅ ¡Todo completado!
@@ -588,45 +579,61 @@ function App() {
                       </Stack>
                     </Card>
 
-                    <Card sx={{ p: 2 }}>
+                    <Card sx={{ p: 2, mb: 2 }}>
                       <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600, mb: 2 }}>
-                        📊 Resumen del Quiz
+                        📊 Resumen Total
                       </Typography>
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Puntuación: <strong>{userQuizScore.correctAnswers}/{userQuizScore.totalQuestions}</strong> correctas
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Score: <strong>{userQuizScore.score.toFixed(1)}%</strong>
-                        </Typography>
-                      </Box>
                       
-                      <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-                        Tus respuestas:
-                      </Typography>
-                      <Stack spacing={1}>
-                        {userQuizScore.answers.map((answer: any, idx: number) => (
-                          <Box
-                            key={idx}
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 1,
-                              p: 1,
-                              bgcolor: answer.isCorrect ? '#e8f5e9' : '#ffebee',
-                              borderRadius: 1,
-                              fontSize: '0.85rem',
-                            }}
-                          >
-                            <Typography sx={{ fontSize: '0.85rem' }}>
-                              {answer.isCorrect ? '✅' : '❌'} {answer.answer}
+                      {!combinedScore.hasAdminAnswers && (
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                          Las respuestas correctas aún no han sido publicadas. Tu puntaje se mostrará cuando el administrador ingrese las respuestas.
+                        </Alert>
+                      )}
+
+                      {combinedScore.hasAdminAnswers && (
+                        <>
+                          <Box sx={{ mb: 2, p: 2, bgcolor: '#e3f2fd', borderRadius: 1 }}>
+                            <Typography variant="h5" sx={{ fontWeight: 600, textAlign: 'center', color: '#1976d2' }}>
+                              {combinedScore.totalCorrect}/{combinedScore.totalQuestions}
+                            </Typography>
+                            <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+                              Score: <strong>{combinedScore.score.toFixed(1)}%</strong>
                             </Typography>
                           </Box>
-                        ))}
-                      </Stack>
+
+                          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                            <Box sx={{ flex: 1, p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                              <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Quiz
+                              </Typography>
+                              <Typography variant="h6">
+                                {combinedScore.quizCorrect}/{combinedScore.quizTotal}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ flex: 1, p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                              <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Predicciones
+                              </Typography>
+                              <Typography variant="h6">
+                                {combinedScore.predictionsCorrect}/{combinedScore.predictionsTotal}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </>
+                      )}
                     </Card>
 
-                    <Box mt={2} textAlign="center">
+                    <Box mt={2} textAlign="center" display="flex" gap={1} justifyContent="center">
+                      {combinedScore.hasAdminAnswers && (
+                        <Button 
+                          variant="contained" 
+                          size="small" 
+                          onClick={() => setCurrentPage('scoreboard')}
+                          sx={{ mr: 1 }}
+                        >
+                          Ver Tabla de Posiciones
+                        </Button>
+                      )}
                       <Button variant="outlined" size="small" onClick={handleReset}>
                         Volver
                       </Button>
@@ -702,20 +709,40 @@ function App() {
                 </Typography>
               </Box>
             )}
+
+            <Box textAlign="center" mt={2}>
+              <Button 
+                variant="text" 
+                size="small" 
+                onClick={() => setCurrentPage('scoreboard')}
+                sx={{ fontSize: '0.75rem', mr: 1 }}
+              >
+                Scoreboard
+              </Button>
+              <Button 
+                variant="text" 
+                size="small" 
+                onClick={() => setCurrentPage('admin')}
+                sx={{ fontSize: '0.75rem' }}
+              >
+                Admin
+              </Button>
+            </Box>
           </Paper>
         </Container>
-      </Box>
 
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setError(null)} severity="error" sx={{ width: '100%' }}>
-          {error}
-        </Alert>
-      </Snackbar>
+        <Snackbar
+          open={!!error}
+          autoHideDuration={6000}
+          onClose={() => setError(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert onClose={() => setError(null)} severity="error" sx={{ width: '100%' }}>
+            {error}
+          </Alert>
+        </Snackbar>
+      </Box>
+      )}
     </ThemeProvider>
   )
 }

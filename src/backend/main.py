@@ -6,7 +6,8 @@ from typing import Dict
 from config import settings
 from models import (
     PredictionInput, Prediction, AnswersInput, CorrectAnswers,
-    ParticipantStatus, Score, VALID_PARTICIPANTS, Question, QuizAnswerInput, QuizAnswer
+    ParticipantStatus, Score, VALID_PARTICIPANTS, Question, QuizAnswerInput, QuizAnswer,
+    QuizCorrectAnswersInput, QuizCorrectAnswers, CombinedScore
 )
 from database import db
 
@@ -184,7 +185,7 @@ async def get_all_predictions():
     }
 
 
-@app.post("/api/admin/answers")
+@app.post("/api/admin/set-correct-answers")
 async def set_correct_answers(answers_input: AnswersInput):
     """Set correct answers - admin only"""
     try:
@@ -370,6 +371,148 @@ async def get_user_quiz_score(userName: str):
             "score": score,
             "answers": answers_data
         }
+    }
+
+
+@app.post("/api/admin/quiz-answers")
+async def set_quiz_correct_answers(answers_input: QuizCorrectAnswersInput):
+    """Set correct quiz answers - admin only"""
+    try:
+        correct_answers = QuizCorrectAnswers(
+            answers=answers_input.answers
+        )
+        
+        saved_answers = db.save_quiz_correct_answers(correct_answers)
+        
+        return {
+            "success": True,
+            "message": "Quiz correct answers saved successfully",
+            "data": {
+                "answers": saved_answers.answers,
+                "updatedAt": saved_answers.updatedAt.isoformat() + "Z"
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@app.get("/api/combined-score/{userName}")
+async def get_combined_score(userName: str):
+    """Get combined score (quiz + predictions) for a user"""
+    # Validate userName
+    if userName not in VALID_PARTICIPANTS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid userName. Must be one of: {', '.join(VALID_PARTICIPANTS)}"
+        )
+    
+    # Check if admin has set correct answers
+    quiz_correct_answers = db.get_quiz_correct_answers()
+    predictions_correct_answers = db.get_correct_answers()
+    has_admin_answers = quiz_correct_answers is not None and predictions_correct_answers is not None
+    
+    # Get user's quiz answers
+    quiz_answers = db.get_user_quiz_answers(userName)
+    quiz_correct = 0
+    quiz_total = len(quiz_answers)
+    
+    if has_admin_answers and quiz_correct_answers:
+        for answer in quiz_answers:
+            if quiz_correct_answers.answers.get(answer.questionId) == answer.answer:
+                quiz_correct += 1
+    
+    # Get user's predictions
+    user_prediction = db.get_prediction(userName)
+    predictions_correct = 0
+    predictions_total = 0
+    
+    if user_prediction:
+        predictions_total = len(user_prediction.predictions)
+        if has_admin_answers and predictions_correct_answers:
+            for giver, receiver in user_prediction.predictions.items():
+                if predictions_correct_answers.answers.get(giver) == receiver:
+                    predictions_correct += 1
+    
+    # Calculate totals
+    total_correct = quiz_correct + predictions_correct
+    total_questions = quiz_total + predictions_total
+    score = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0.0
+    
+    return {
+        "success": True,
+        "data": {
+            "userName": userName,
+            "quizCorrect": quiz_correct,
+            "quizTotal": quiz_total,
+            "predictionsCorrect": predictions_correct,
+            "predictionsTotal": predictions_total,
+            "totalCorrect": total_correct,
+            "totalQuestions": total_questions,
+            "score": score,
+            "hasAdminAnswers": has_admin_answers
+        }
+    }
+
+
+@app.get("/api/scoreboard")
+async def get_scoreboard():
+    """Get scoreboard with all users ordered by score"""
+    # Check if admin has set correct answers
+    quiz_correct_answers = db.get_quiz_correct_answers()
+    predictions_correct_answers = db.get_correct_answers()
+    has_admin_answers = quiz_correct_answers is not None and predictions_correct_answers is not None
+    
+    # Get all users who have submitted
+    predictions = db.get_all_predictions()
+    scoreboard = []
+    
+    for user_name in predictions.keys():
+        # Get quiz answers
+        quiz_answers = db.get_user_quiz_answers(user_name)
+        quiz_correct = 0
+        quiz_total = len(quiz_answers)
+        
+        if has_admin_answers and quiz_correct_answers:
+            for answer in quiz_answers:
+                if quiz_correct_answers.answers.get(answer.questionId) == answer.answer:
+                    quiz_correct += 1
+        
+        # Get predictions
+        user_prediction = predictions[user_name]
+        predictions_correct = 0
+        predictions_total = len(user_prediction.predictions)
+        
+        if has_admin_answers and predictions_correct_answers:
+            for giver, receiver in user_prediction.predictions.items():
+                if predictions_correct_answers.answers.get(giver) == receiver:
+                    predictions_correct += 1
+        
+        # Calculate totals
+        total_correct = quiz_correct + predictions_correct
+        total_questions = quiz_total + predictions_total
+        score = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0.0
+        
+        scoreboard.append({
+            "userName": user_name,
+            "quizCorrect": quiz_correct,
+            "quizTotal": quiz_total,
+            "predictionsCorrect": predictions_correct,
+            "predictionsTotal": predictions_total,
+            "totalCorrect": total_correct,
+            "totalQuestions": total_questions,
+            "score": score
+        })
+    
+    # Sort by score descending
+    scoreboard.sort(key=lambda x: (x['score'], x['totalCorrect']), reverse=True)
+    
+    return {
+        "success": True,
+        "hasAdminAnswers": has_admin_answers,
+        "data": scoreboard
     }
 
 

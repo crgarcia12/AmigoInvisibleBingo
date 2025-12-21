@@ -1,7 +1,7 @@
 from typing import Dict, Optional, List
 from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions
-from models import Prediction, CorrectAnswers, VALID_PARTICIPANTS, QuizAnswer
+from models import Prediction, CorrectAnswers, VALID_PARTICIPANTS, QuizAnswer, QuizCorrectAnswers
 from config import settings
 
 
@@ -193,6 +193,33 @@ class Database:
             answers_by_user[answer.userName].append(answer)
         
         return answers_by_user
+    
+    def save_quiz_correct_answers(self, answers: QuizCorrectAnswers) -> QuizCorrectAnswers:
+        """Save correct quiz answers (admin only)"""
+        answers.updatedAt = datetime.utcnow()
+        
+        # Prepare document
+        doc = answers.dict()
+        doc['id'] = "quiz_correct_answers"
+        doc['type'] = "quiz_answers"  # Partition key
+        doc['updatedAt'] = doc['updatedAt'].isoformat()
+        
+        # Upsert to Cosmos DB
+        self.container.upsert_item(doc)
+        return answers
+    
+    def get_quiz_correct_answers(self) -> Optional[QuizCorrectAnswers]:
+        """Get correct quiz answers"""
+        try:
+            item = self.container.read_item(
+                item="quiz_correct_answers",
+                partition_key="quiz_answers"
+            )
+            # Convert datetime strings back
+            item['updatedAt'] = datetime.fromisoformat(item['updatedAt'])
+            return QuizCorrectAnswers(**item)
+        except exceptions.CosmosResourceNotFoundError:
+            return None
 
 
 # Global database instance

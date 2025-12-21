@@ -139,4 +139,28 @@ class UserQuizScore(BaseModel):
     totalQuestions: int
     score: float
     answers: List[QuizAnswer]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class QuizCorrectAnswersInput(BaseModel):
+    """Input model for setting correct quiz answers"""
+    answers: Dict[str, str]  # questionId -> correctAnswer
+
+
+class QuizCorrectAnswers(BaseModel):
+    """Correct quiz answers stored by admin"""
+    answers: Dict[str, str]
+    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CombinedScore(BaseModel):
+    """Combined score including predictions and quiz"""
+    userName: str
+    quizCorrect: int
+    quizTotal: int
+    predictionsCorrect: int
+    predictionsTotal: int
+    totalCorrect: int
+    totalQuestions: int
+    score: float
+    hasAdminAnswers: bool
+
