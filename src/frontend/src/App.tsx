@@ -369,19 +369,17 @@ function App() {
       if (currentQuestion < quizQuestions.length - 1) {
         setCurrentQuestion(currentQuestion + 1)
       } else {
-        // Quiz finished - load combined score and show summary
-        setTimeout(async () => {
-          try {
-            const score = await api.getCombinedScore(userName)
-            setCombinedScore(score)
-            setShowQuiz(false)
-            setShowSummary(true)
-          } catch (err) {
-            console.error('Error loading combined score:', err)
-            setShowQuiz(false)
-            setSubmitted(false)
-          }
-        }, 2000)
+        // Quiz finished - load combined score and show summary immediately
+        try {
+          const score = await api.getCombinedScore(userName)
+          setCombinedScore(score)
+          setShowQuiz(false)
+          setShowSummary(true)
+        } catch (err) {
+          console.error('Error loading combined score:', err)
+          setShowQuiz(false)
+          setSubmitted(false)
+        }
       }
     } catch (err) {
       console.error('Error submitting quiz answer:', err)
@@ -702,11 +700,6 @@ function App() {
                         ))}
                       </Stack>
                     </Card>
-                    {currentQuestion === quizQuestions.length - 1 && quizScore !== null && (
-                      <Alert severity="success" sx={{ mt: 1 }}>
-                        ¡Quiz completado! Puntuación: {quizScore}/{quizQuestions.length}
-                      </Alert>
-                    )}
                   </>
                 ) : (
                   <Alert severity="info" sx={{ mt: 1 }}>
