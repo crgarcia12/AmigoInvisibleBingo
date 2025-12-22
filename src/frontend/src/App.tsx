@@ -42,7 +42,7 @@ import { CSS } from '@dnd-kit/utilities'
 import './App.css'
 
 // Code version for tracking deployments
-const FRONTEND_VERSION = "1.0.0"
+const FRONTEND_VERSION = "2.0.0"
 
 const theme = createTheme({
   palette: {
@@ -176,6 +176,7 @@ function App() {
   const [showSummary, setShowSummary] = useState(false)
   const [combinedScore, setCombinedScore] = useState<CombinedScore | null>(null)
   const [backendVersion, setBackendVersion] = useState<string>('')
+  const [timeRemaining, setTimeRemaining] = useState<number>(0)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -230,6 +231,33 @@ function App() {
       checkPendingQuizQuestions()
     }
   }, [userName])
+
+  // Initialize timer when question changes or quiz starts
+  useEffect(() => {
+    if (showQuiz && quizQuestions.length > 0 && quizQuestions[currentQuestion]) {
+      const newTimeLimit = quizQuestions[currentQuestion].timeLimit
+      console.log('Setting timer to:', newTimeLimit)
+      setTimeRemaining(newTimeLimit)
+    }
+  }, [currentQuestion, showQuiz])
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (showQuiz && timeRemaining > 0) {
+      const timer = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            // Time's up - auto submit with "Tiempo" answer
+            handleQuizAnswer('Tiempo')
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      return () => clearInterval(timer)
+    }
+  }, [showQuiz, timeRemaining])
 
   const checkPendingQuizQuestions = async () => {
     try {
@@ -693,10 +721,37 @@ function App() {
                       🎮 Quiz - {userName}
                     </Typography>
                     <Card sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.85rem', mb: 0.5, color: 'text.secondary' }}>
-                        Pregunta {currentQuestion + 1} de {quizQuestions.length}
-                      </Typography>
-                      <Typography variant="subtitle1" sx={{ fontSize: '0.95rem', fontWeight: 500, mb: 2 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 120,
+                            height: 120,
+                            borderRadius: '50%',
+                            bgcolor: timeRemaining <= 5 ? '#d32f2f' : timeRemaining <= 10 ? '#ff9800' : '#388e3c',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            transition: 'all 0.3s ease',
+                            mb: 1,
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              color: 'white',
+                              fontWeight: 700,
+                              fontSize: '3.5rem',
+                              lineHeight: 1,
+                            }}
+                          >
+                            {timeRemaining}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
+                          Pregunta {currentQuestion + 1} de {quizQuestions.length}
+                        </Typography>
+                      </Box>
+                      <Typography variant="subtitle1" sx={{ fontSize: '0.95rem', fontWeight: 500, mb: 2, textAlign: 'center' }}>
                         {quizQuestions[currentQuestion].question}
                       </Typography>
                       <Stack spacing={1}>
@@ -705,6 +760,7 @@ function App() {
                             key={index}
                             variant="outlined"
                             onClick={() => handleQuizAnswer(option)}
+                            disabled={timeRemaining === 0}
                             sx={{
                               justifyContent: 'flex-start',
                               textAlign: 'left',

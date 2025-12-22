@@ -224,10 +224,6 @@ export default function Admin() {
     setQuizAnswers((prev) => ({ ...prev, [questionId]: value }))
   }
 
-  const handlePredictionAnswerChange = (giver: string, value: string) => {
-    setPredictionAnswers((prev) => ({ ...prev, [giver]: value }))
-  }
-
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDrag(event.active.data.current?.name || null)
   }

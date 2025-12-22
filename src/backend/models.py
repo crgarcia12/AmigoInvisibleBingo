@@ -125,6 +125,7 @@ class Question(BaseModel):
     question: str
     options: List[str]
     correctAnswer: str
+    timeLimit: int  # Time limit in seconds
 
 
 class QuizAnswerInput(BaseModel):

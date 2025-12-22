@@ -13,6 +13,7 @@ class QuizQuestionData(BaseModel):
     question: str
     options: List[str]
     correctAnswer: str
+    timeLimit: int  # Time limit in seconds
 
 
 class QuizQuestions:
@@ -23,19 +24,22 @@ class QuizQuestions:
             id="q1",
             question="¿Cuál es el país más poblado del mundo?",
             options=["India", "Estados Unidos", "China", "Indonesia"],
-            correctAnswer="China"
+            correctAnswer="China",
+            timeLimit=15
         ),
         QuizQuestionData(
             id="q2",
             question="¿En qué año cayó el Muro de Berlín?",
             options=["1987", "1989", "1991", "1993"],
-            correctAnswer="1989"
+            correctAnswer="1989",
+            timeLimit=20
         ),
         QuizQuestionData(
             id="q3",
             question="¿Cuál es el océano más grande?",
             options=["Atlántico", "Índico", "Ártico", "Pacífico"],
-            correctAnswer="Pacífico"
+            correctAnswer="Pacífico",
+            timeLimit=10
         )
     ]
     
@@ -65,7 +69,8 @@ class QuizQuestions:
             {
                 "id": q.id,
                 "question": q.question,
-                "options": q.options
+                "options": q.options,
+                "timeLimit": q.timeLimit
             }
             for q in cls.QUESTIONS
         ]
@@ -78,7 +83,8 @@ class QuizQuestions:
                 "id": q.id,
                 "question": q.question,
                 "options": q.options,
-                "correctAnswer": q.correctAnswer
+                "correctAnswer": q.correctAnswer,
+                "timeLimit": q.timeLimit
             }
             for q in cls.QUESTIONS
         ]

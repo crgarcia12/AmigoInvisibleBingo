@@ -36,6 +36,7 @@ interface QuizQuestion {
   id: string
   question: string
   options: string[]
+  timeLimit: number
 }
 
 interface AdminQuizQuestion {
@@ -43,6 +44,7 @@ interface AdminQuizQuestion {
   question: string
   options: string[]
   correctAnswer: string
+  timeLimit: number
 }
 
 interface QuizAnswerResponse {
