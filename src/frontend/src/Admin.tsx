@@ -10,7 +10,6 @@ import {
   TableHead,
   TableRow,
   Box,
-  TextField,
   Button,
   Alert,
   Tabs,
@@ -19,11 +18,120 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  IconButton,
 } from '@mui/material'
+import { Clear } from '@mui/icons-material'
 import { api } from './api'
 import type { ScoreboardEntry, AdminQuizQuestion } from './api'
+import {
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 
 const PARTICIPANTS = ['Miriam', 'Paula', 'Adriana', 'Lula', 'Diego', 'Carlos A', 'Padrino']
+
+function DraggableName({ name, isUsed }: { name: string; isUsed: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `admin-draggable-${name}`,
+    data: { name },
+    disabled: isUsed,
+  })
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.5 : isUsed ? 0.3 : 1,
+  }
+
+  return (
+    <Box
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      sx={{
+        ...style,
+        cursor: isUsed ? 'not-allowed' : 'grab',
+        touchAction: 'none',
+        userSelect: 'none',
+        display: 'inline-block',
+        px: 1.5,
+        py: 0.5,
+        bgcolor: isUsed ? '#e0e0e0' : '#d32f2f',
+        color: isUsed ? '#666' : 'white',
+        borderRadius: 1,
+        fontSize: '0.875rem',
+        fontWeight: 500,
+        '&:active': {
+          cursor: isUsed ? 'not-allowed' : 'grabbing',
+        },
+      }}
+    >
+      {name}
+    </Box>
+  )
+}
+
+function DropZone({ person, prediction, onRemove }: { person: string; prediction: string; onRemove: () => void }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `admin-droppable-${person}`,
+    data: { person },
+  })
+
+  return (
+    <Box
+      ref={setNodeRef}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        py: 1,
+        px: 1.5,
+        borderRadius: 1,
+        bgcolor: isOver ? '#e3f2fd' : prediction ? '#e8f5e9' : '#f5f5f5',
+        border: isOver ? '2px solid #1976d2' : '1px solid #ddd',
+        transition: 'all 0.2s',
+        minHeight: 44,
+      }}
+    >
+      <Typography sx={{ fontSize: '0.95rem', fontWeight: 500, minWidth: 80, color: '#333' }}>
+        {person} →
+      </Typography>
+      {prediction ? (
+        <Box display="flex" alignItems="center" gap={0.5} flex={1}>
+          <Box
+            sx={{
+              px: 1.5,
+              py: 0.5,
+              bgcolor: '#388e3c',
+              color: 'white',
+              borderRadius: 1,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+            }}
+          >
+            {prediction}
+          </Box>
+          <IconButton size="small" onClick={onRemove} sx={{ ml: 'auto', p: 0.5 }}>
+            <Clear fontSize="small" />
+          </IconButton>
+        </Box>
+      ) : (
+        <Typography sx={{ fontSize: '0.8rem', color: '#999', fontStyle: 'italic' }}>
+          arrastra aquí
+        </Typography>
+      )}
+    </Box>
+  )
+}
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -55,12 +163,27 @@ export default function Admin() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [quizQuestions, setQuizQuestions] = useState<AdminQuizQuestion[]>([])
+  const [activeDrag, setActiveDrag] = useState<string | null>(null)
 
   // Quiz answers
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({})
 
   // Prediction answers
   const [predictionAnswers, setPredictionAnswers] = useState<Record<string, string>>({})
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
+    })
+  )
 
   useEffect(() => {
     loadScoreboard()
@@ -103,6 +226,35 @@ export default function Admin() {
 
   const handlePredictionAnswerChange = (giver: string, value: string) => {
     setPredictionAnswers((prev) => ({ ...prev, [giver]: value }))
+  }
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDrag(event.active.data.current?.name || null)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveDrag(null)
+
+    if (over && active.data.current && over.data.current) {
+      const draggedName = active.data.current.name
+      const targetPerson = over.data.current.person
+
+      if (draggedName !== targetPerson) {
+        setPredictionAnswers((prev) => ({
+          ...prev,
+          [targetPerson]: draggedName,
+        }))
+      }
+    }
+  }
+
+  const handleRemovePrediction = (person: string) => {
+    setPredictionAnswers((prev) => {
+      const newPredictions = { ...prev }
+      delete newPredictions[person]
+      return newPredictions
+    })
   }
 
   const handleSubmitQuizAnswers = async () => {
@@ -220,14 +372,20 @@ export default function Admin() {
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {quizQuestions.map((q) => (
-              <TextField
-                key={q.id}
-                label={q.question}
-                value={quizAnswers[q.id] || ''}
-                onChange={(e) => handleQuizAnswerChange(q.id, e.target.value)}
-                fullWidth
-                helperText={`Correct answer: ${q.correctAnswer}`}
-              />
+              <FormControl key={q.id} fullWidth>
+                <InputLabel>{q.question}</InputLabel>
+                <Select
+                  value={quizAnswers[q.id] || ''}
+                  onChange={(e) => handleQuizAnswerChange(q.id, e.target.value)}
+                  label={q.question}
+                >
+                  {q.options.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             ))}
             <Button
               variant="contained"
@@ -245,37 +403,66 @@ export default function Admin() {
           <Typography variant="h5" gutterBottom>
             Set Prediction Correct Answers
           </Typography>
-          <Typography variant="body2" gutterBottom>
-            Select who each person gave the gift to (the receiver).
+          <Typography variant="body2" gutterBottom sx={{ mb: 2 }}>
+            Arrastra los nombres para indicar quién fue el amigo invisible de cada persona.
           </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {PARTICIPANTS.map((giver) => (
-              <FormControl key={giver} fullWidth>
-                <InputLabel>{giver} gave to</InputLabel>
-                <Select
-                  value={predictionAnswers[giver] || ''}
-                  onChange={(e) => handlePredictionAnswerChange(giver, e.target.value)}
-                  label={`${giver} gave to`}
+          
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ mb: 1 }}>
+                Nombres disponibles:
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {PARTICIPANTS.map((name) => {
+                  const isUsed = Object.values(predictionAnswers).includes(name)
+                  return <DraggableName key={name} name={name} isUsed={isUsed} />
+                })}
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+              {PARTICIPANTS.map((person) => (
+                <DropZone
+                  key={person}
+                  person={person}
+                  prediction={predictionAnswers[person] || ''}
+                  onRemove={() => handleRemovePrediction(person)}
+                />
+              ))}
+            </Box>
+
+            <DragOverlay>
+              {activeDrag ? (
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 0.5,
+                    bgcolor: '#d32f2f',
+                    color: 'white',
+                    borderRadius: 1,
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: 'grabbing',
+                  }}
                 >
-                  <MenuItem value="">
-                    <em>Select recipient</em>
-                  </MenuItem>
-                  {PARTICIPANTS.filter(p => p !== giver).map((receiver) => (
-                    <MenuItem key={receiver} value={receiver}>
-                      {receiver}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            ))}
-            <Button
-              variant="contained"
-              onClick={handleSubmitPredictionAnswers}
-              disabled={loading || Object.keys(predictionAnswers).length !== PARTICIPANTS.length}
-            >
-              Save Prediction Answers
-            </Button>
-          </Box>
+                  {activeDrag}
+                </Box>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+
+          <Button
+            variant="contained"
+            onClick={handleSubmitPredictionAnswers}
+            disabled={loading || Object.keys(predictionAnswers).length !== PARTICIPANTS.length}
+          >
+            Save Prediction Answers
+          </Button>
         </Paper>
       </TabPanel>
     </Container>
