@@ -10,35 +10,10 @@ from models import (
     QuizCorrectAnswersInput, QuizCorrectAnswers, CombinedScore
 )
 from database import db
+from quiz_questions import QuizQuestions
 
-
-# Hardcoded quiz questions
-QUIZ_QUESTIONS = [
-    Question(
-        id="q1",
-        question="¿Cuántas personas participan en el amigo invisible?",
-        options=["5", "6", "7", "8"],
-        correctAnswer="7"
-    ),
-    Question(
-        id="q2",
-        question="¿Cuándo se revelan los resultados?",
-        options=["23 Dic", "24 Dic", "25 Dic", "31 Dic"],
-        correctAnswer="24 Dic"
-    ),
-    Question(
-        id="q3",
-        question="¿Cuál es el objetivo del juego?",
-        options=[
-            "Adivinar quién es el amigo invisible de cada persona",
-            "Comprar regalos",
-            "Hacer una fiesta",
-            "Ninguna"
-        ],
-        correctAnswer="Adivinar quién es el amigo invisible de cada persona"
-    )
-]
-
+# Code version for tracking deployments
+BACKEND_VERSION = "1.0.0"
 
 app = FastAPI(
     title="Amigo Invisible Bingo API",
@@ -263,15 +238,14 @@ async def get_quiz_questions(userName: str):
     answered_questions = db.get_user_quiz_answers(userName)
     answered_ids = {answer.questionId for answer in answered_questions}
     
-    # Return only unanswered questions without the correct answer
-    questions_data = []
-    for q in QUIZ_QUESTIONS:
-        if q.id not in answered_ids:
-            questions_data.append({
-                "id": q.id,
-                "question": q.question,
-                "options": q.options
-            })
+    # Get all questions without correct answers
+    all_questions = QuizQuestions.get_questions_for_user()
+    
+    # Return only unanswered questions
+    questions_data = [
+        q for q in all_questions
+        if q["id"] not in answered_ids
+    ]
     
     return {
         "success": True,
@@ -282,25 +256,17 @@ async def get_quiz_questions(userName: str):
 @app.post("/api/quiz/answer", status_code=status.HTTP_201_CREATED)
 async def submit_quiz_answer(answer_input: QuizAnswerInput):
     """Submit a quiz answer"""
-    # Check if user has already answered this question
-    existing_answers = db.get_user_quiz_answers(answer_input.userName)
-    if any(answer.questionId == answer_input.questionId for answer in existing_answers):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This question has already been answered"
-        )
+    # Get the correct answer for this question
+    correct_answer = QuizQuestions.get_correct_answer(answer_input.questionId)
     
-    # Get the question to check the correct answer
-    question = next((q for q in QUIZ_QUESTIONS if q.id == answer_input.questionId), None)
-    
-    if not question:
+    if not correct_answer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Question not found"
         )
     
     # Check if answer is correct
-    is_correct = answer_input.answer == question.correctAnswer
+    is_correct = answer_input.answer == correct_answer
     
     # Create quiz answer
     quiz_answer = QuizAnswer(
@@ -310,16 +276,22 @@ async def submit_quiz_answer(answer_input: QuizAnswerInput):
         isCorrect=is_correct
     )
     
-    # Save to database
-    saved_answer = db.save_quiz_answer(quiz_answer)
-    
-    return {
-        "success": True,
-        "data": {
-            "questionId": saved_answer.questionId,
-            "isCorrect": saved_answer.isCorrect
+    try:
+        # Save to database
+        saved_answer = db.save_quiz_answer(quiz_answer)
+        
+        return {
+            "success": True,
+            "data": {
+                "questionId": saved_answer.questionId,
+                "isCorrect": saved_answer.isCorrect
+            }
         }
-    }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 @app.get("/api/quiz/score/{userName}")
@@ -347,20 +319,25 @@ async def get_user_quiz_score(userName: str):
             }
         }
     
-    # Calculate score
-    correct_count = sum(1 for a in answers if a.isCorrect)
-    total_count = len(answers)
-    score = round((correct_count / total_count) * 100, 2) if total_count > 0 else 0.0
-    
-    # Format answers
+    # Calculate isCorrect for each answer based on quiz questions
+    correct_count = 0
     answers_data = []
     for answer in answers:
+        correct_answer = QuizQuestions.get_correct_answer(answer.questionId)
+        is_correct = correct_answer == answer.answer if correct_answer else False
+        
+        if is_correct:
+            correct_count += 1
+        
         answers_data.append({
             "questionId": answer.questionId,
             "answer": answer.answer,
-            "isCorrect": answer.isCorrect,
+            "isCorrect": is_correct,
             "timestamp": answer.timestamp.isoformat() + "Z"
         })
+    
+    total_count = len(answers)
+    score = round((correct_count / total_count) * 100, 2) if total_count > 0 else 0.0
     
     return {
         "success": True,
@@ -397,6 +374,16 @@ async def set_quiz_correct_answers(answers_input: QuizCorrectAnswersInput):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@app.get("/api/admin/quiz-questions")
+async def get_admin_quiz_questions():
+    """Get quiz questions with correct answers - admin only"""
+    questions = QuizQuestions.get_questions_for_admin()
+    return {
+        "success": True,
+        "data": questions
+    }
 
 
 @app.get("/api/combined-score/{userName}")
@@ -463,7 +450,7 @@ async def get_scoreboard():
     # Check if admin has set correct answers
     quiz_correct_answers = db.get_quiz_correct_answers()
     predictions_correct_answers = db.get_correct_answers()
-    has_admin_answers = quiz_correct_answers is not None and predictions_correct_answers is not None
+    has_admin_answers = quiz_correct_answers is not None or predictions_correct_answers is not None
     
     # Get all users who have submitted
     predictions = db.get_all_predictions()
@@ -513,6 +500,15 @@ async def get_scoreboard():
         "success": True,
         "hasAdminAnswers": has_admin_answers,
         "data": scoreboard
+    }
+
+
+@app.get("/api/version")
+async def get_version():
+    """Get backend version information"""
+    return {
+        "backend": BACKEND_VERSION,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
 

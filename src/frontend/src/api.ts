@@ -38,6 +38,13 @@ interface QuizQuestion {
   options: string[]
 }
 
+interface AdminQuizQuestion {
+  id: string
+  question: string
+  options: string[]
+  correctAnswer: string
+}
+
 interface QuizAnswerResponse {
   questionId: string
   isCorrect: boolean
@@ -262,14 +269,14 @@ export const api = {
       throw new Error(error.message || 'Failed to get scoreboard')
     }
 
-    const result: ApiResponse<ScoreboardResponse> = await response.json()
+    const result = await response.json()
     if (!result.success) {
       throw new Error(result.message || 'Failed to get scoreboard')
     }
 
     return {
-      hasAdminAnswers: result.data?.hasAdminAnswers || false,
-      data: result.data?.data || []
+      hasAdminAnswers: result.hasAdminAnswers || false,
+      data: result.data || []
     }
   },
 
@@ -298,6 +305,34 @@ export const api = {
       throw new Error(error.message || 'Failed to set correct answers')
     }
   },
+
+  async getAdminQuizQuestions(): Promise<AdminQuizQuestion[]> {
+    const response = await fetch(`${API_BASE_URL}/api/admin/quiz-questions`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get quiz questions')
+    }
+
+    const result: ApiResponse<AdminQuizQuestion[]> = await response.json()
+    return result.data || []
+  },
+
+  async getVersion(): Promise<{ backend: string; timestamp: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/version`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to get version')
+    }
+
+    return await response.json()
+  },
 }
 
-export type { QuizQuestion, QuizAnswerResponse, QuizScoreResponse, CombinedScore, ScoreboardEntry, ScoreboardResponse }
+export type { QuizQuestion, QuizAnswerResponse, QuizScoreResponse, CombinedScore, ScoreboardEntry, ScoreboardResponse, AdminQuizQuestion }

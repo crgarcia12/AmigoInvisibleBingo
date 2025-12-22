@@ -41,6 +41,9 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import './App.css'
 
+// Code version for tracking deployments
+const FRONTEND_VERSION = "1.0.0"
+
 const theme = createTheme({
   palette: {
     mode: 'light',
@@ -172,6 +175,7 @@ function App() {
   const [loadingQuiz, setLoadingQuiz] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
   const [combinedScore, setCombinedScore] = useState<CombinedScore | null>(null)
+  const [backendVersion, setBackendVersion] = useState<string>('')
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -190,7 +194,17 @@ function App() {
   useEffect(() => {
     checkHealth()
     loadParticipantsStatus()
+    loadBackendVersion()
   }, [])
+
+  const loadBackendVersion = async () => {
+    try {
+      const data = await api.getVersion()
+      setBackendVersion(data.backend)
+    } catch (err) {
+      console.error('Failed to load version:', err)
+    }
+  }
 
   useEffect(() => {
     if (userName) {
@@ -727,6 +741,12 @@ function App() {
               >
                 Admin
               </Button>
+            </Box>
+            
+            <Box textAlign="center" mt={2}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                Frontend: v{FRONTEND_VERSION} | Backend: v{backendVersion || '...'}
+              </Typography>
             </Box>
           </Paper>
         </Container>

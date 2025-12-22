@@ -1,7 +1,7 @@
 from typing import Dict, Optional, List
 from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions
-from models import Prediction, CorrectAnswers, VALID_PARTICIPANTS, QuizAnswer, QuizCorrectAnswers
+from models import Prediction, CorrectAnswers, VALID_PARTICIPANTS, QuizAnswer, QuizCorrectAnswers, UserSubmission, QuizAnswerData
 from config import settings
 
 
@@ -18,65 +18,125 @@ class Database:
         )
         print(f"✅ Connected to Cosmos DB: {settings.COSMOS_DATABASE}/{settings.COSMOS_CONTAINER}")
     
-    def save_prediction(self, prediction: Prediction) -> Prediction:
-        """Save or update a prediction"""
+    def get_user_submission(self, user_name: str) -> Optional[UserSubmission]:
+        """Get complete user submission (predictions + quiz answers)"""
+        try:
+            item = self.container.read_item(
+                item=f"user_{user_name}",
+                partition_key="user_submission"
+            )
+            # Convert datetime strings and nested objects
+            item['timestamp'] = datetime.fromisoformat(item['timestamp'])
+            item['createdAt'] = datetime.fromisoformat(item['createdAt'])
+            item['updatedAt'] = datetime.fromisoformat(item['updatedAt'])
+            
+            # Convert quiz answers
+            quiz_answers = []
+            for qa in item.get('quizAnswers', []):
+                qa['timestamp'] = datetime.fromisoformat(qa['timestamp'])
+                quiz_answers.append(QuizAnswerData(**qa))
+            item['quizAnswers'] = quiz_answers
+            
+            return UserSubmission(**item)
+        except exceptions.CosmosResourceNotFoundError:
+            return None
+    
+    def save_user_submission(self, submission: UserSubmission) -> UserSubmission:
+        """Save or update complete user submission"""
         now = datetime.utcnow()
         
-        # Try to get existing prediction
+        # Try to get existing submission
         try:
             existing_item = self.container.read_item(
-                item=f"prediction_{prediction.userName}",
-                partition_key="prediction"
+                item=f"user_{submission.userName}",
+                partition_key="user_submission"
             )
             # Update existing
-            prediction.id = existing_item['id']
-            prediction.createdAt = datetime.fromisoformat(existing_item['createdAt'])
-            prediction.updatedAt = now
+            submission.id = existing_item['id']
+            submission.createdAt = datetime.fromisoformat(existing_item['createdAt'])
+            submission.updatedAt = now
         except exceptions.CosmosResourceNotFoundError:
-            # New prediction
-            prediction.timestamp = now
-            prediction.createdAt = now
-            prediction.updatedAt = now
+            # New submission
+            submission.timestamp = now
+            submission.createdAt = now
+            submission.updatedAt = now
         
         # Prepare document for Cosmos DB
-        doc = prediction.dict()
-        doc['id'] = f"prediction_{prediction.userName}"
-        doc['type'] = "prediction"  # Partition key
+        doc = submission.dict()
+        doc['id'] = f"user_{submission.userName}"
+        doc['type'] = "user_submission"  # Partition key
         doc['timestamp'] = doc['timestamp'].isoformat()
         doc['createdAt'] = doc['createdAt'].isoformat()
         doc['updatedAt'] = doc['updatedAt'].isoformat()
         
+        # Convert quiz answers timestamps
+        for qa in doc['quizAnswers']:
+            qa['timestamp'] = qa['timestamp'].isoformat()
+        
         # Upsert to Cosmos DB
         self.container.upsert_item(doc)
+        return submission
+    
+    def save_prediction(self, prediction: Prediction) -> Prediction:
+        """Save or update a prediction - updates UserSubmission"""
+        # Get or create user submission
+        submission = self.get_user_submission(prediction.userName)
+        if not submission:
+            submission = UserSubmission(userName=prediction.userName)
+        
+        # Update predictions
+        submission.predictions = prediction.predictions
+        submission.updatedAt = datetime.utcnow()
+        
+        # Save submission
+        self.save_user_submission(submission)
+        
+        # Return prediction object for compatibility
+        prediction.id = submission.id
+        prediction.timestamp = submission.timestamp
+        prediction.createdAt = submission.createdAt
+        prediction.updatedAt = submission.updatedAt
         return prediction
     
     def get_prediction(self, user_name: str) -> Optional[Prediction]:
         """Get a prediction by username"""
-        try:
-            item = self.container.read_item(
-                item=f"prediction_{user_name}",
-                partition_key="prediction"
-            )
-            # Convert datetime strings back
-            item['timestamp'] = datetime.fromisoformat(item['timestamp'])
-            item['createdAt'] = datetime.fromisoformat(item['createdAt'])
-            item['updatedAt'] = datetime.fromisoformat(item['updatedAt'])
-            return Prediction(**item)
-        except exceptions.CosmosResourceNotFoundError:
+        submission = self.get_user_submission(user_name)
+        if not submission or not submission.predictions:
             return None
+        
+        # Convert to Prediction for compatibility
+        return Prediction(
+            id=submission.id,
+            userName=submission.userName,
+            predictions=submission.predictions,
+            timestamp=submission.timestamp,
+            createdAt=submission.createdAt,
+            updatedAt=submission.updatedAt
+        )
     
     def get_all_predictions(self) -> Dict[str, Prediction]:
         """Get all predictions"""
-        query = "SELECT * FROM c WHERE c.type = 'prediction'"
+        query = "SELECT * FROM c WHERE c.type = 'user_submission'"
         items = list(self.container.query_items(query=query, enable_cross_partition_query=True))
         
         predictions = {}
         for item in items:
-            # Convert datetime strings back
-            item['timestamp'] = datetime.fromisoformat(item['timestamp'])
-            item['createdAt'] = datetime.fromisoformat(item['createdAt'])
-            item['updatedAt'] = datetime.fromisoformat(item['updatedAt'])
-            prediction = Prediction(**item)
+            if not item.get('predictions'):
+                continue
+            
+            # Convert datetime strings
+            timestamp = datetime.fromisoformat(item['timestamp'])
+            createdAt = datetime.fromisoformat(item['createdAt'])
+            updatedAt = datetime.fromisoformat(item['updatedAt'])
+            
+            prediction = Prediction(
+                id=item['id'],
+                userName=item['userName'],
+                predictions=item['predictions'],
+                timestamp=timestamp,
+                createdAt=createdAt,
+                updatedAt=updatedAt
+            )
             predictions[prediction.userName] = prediction
         
         return predictions
@@ -154,43 +214,80 @@ class Database:
         return scores
     
     def save_quiz_answer(self, quiz_answer: QuizAnswer) -> QuizAnswer:
-        """Save a quiz answer"""
+        """Save a quiz answer - updates UserSubmission"""
+        # Get or create user submission
+        submission = self.get_user_submission(quiz_answer.userName)
+        if not submission:
+            submission = UserSubmission(userName=quiz_answer.userName)
+        
+        # Check if question already answered
+        for existing in submission.quizAnswers:
+            if existing.questionId == quiz_answer.questionId:
+                raise ValueError(f"Question {quiz_answer.questionId} has already been answered")
+        
+        # Add new answer
         quiz_answer.timestamp = datetime.utcnow()
+        answer_data = QuizAnswerData(
+            questionId=quiz_answer.questionId,
+            answer=quiz_answer.answer,
+            timestamp=quiz_answer.timestamp
+        )
+        submission.quizAnswers.append(answer_data)
+        submission.updatedAt = datetime.utcnow()
         
-        # Prepare document
-        doc = quiz_answer.dict()
-        doc['id'] = f"quiz_answer_{quiz_answer.userName}_{quiz_answer.questionId}"
-        doc['type'] = "quiz_answer"  # Partition key
-        doc['timestamp'] = doc['timestamp'].isoformat()
+        # Save submission
+        self.save_user_submission(submission)
         
-        # Upsert to Cosmos DB
-        self.container.upsert_item(doc)
         return quiz_answer
     
     def get_user_quiz_answers(self, user_name: str) -> List[QuizAnswer]:
         """Get all quiz answers for a user"""
-        query = f"SELECT * FROM c WHERE c.type = 'quiz_answer' AND c.userName = '{user_name}'"
-        items = list(self.container.query_items(query=query, enable_cross_partition_query=True))
+        submission = self.get_user_submission(user_name)
+        if not submission:
+            return []
         
+        # Convert to QuizAnswer objects for compatibility
         answers = []
-        for item in items:
-            item['timestamp'] = datetime.fromisoformat(item['timestamp'])
-            answers.append(QuizAnswer(**item))
+        for qa in submission.quizAnswers:
+            # We need to check correctness from QUIZ_QUESTIONS
+            # For now, return with isCorrect=False as placeholder
+            answers.append(QuizAnswer(
+                id=f"quiz_answer_{user_name}_{qa.questionId}",
+                userName=user_name,
+                questionId=qa.questionId,
+                answer=qa.answer,
+                isCorrect=False,  # Will be calculated in main.py
+                timestamp=qa.timestamp
+            ))
         
         return answers
     
     def get_all_quiz_answers(self) -> Dict[str, List[QuizAnswer]]:
         """Get all quiz answers grouped by user"""
-        query = "SELECT * FROM c WHERE c.type = 'quiz_answer'"
+        query = "SELECT * FROM c WHERE c.type = 'user_submission'"
         items = list(self.container.query_items(query=query, enable_cross_partition_query=True))
         
         answers_by_user = {}
         for item in items:
-            item['timestamp'] = datetime.fromisoformat(item['timestamp'])
-            answer = QuizAnswer(**item)
-            if answer.userName not in answers_by_user:
-                answers_by_user[answer.userName] = []
-            answers_by_user[answer.userName].append(answer)
+            user_name = item['userName']
+            quiz_answers_data = item.get('quizAnswers', [])
+            
+            if not quiz_answers_data:
+                continue
+            
+            answers = []
+            for qa in quiz_answers_data:
+                timestamp = datetime.fromisoformat(qa['timestamp'])
+                answers.append(QuizAnswer(
+                    id=f"quiz_answer_{user_name}_{qa['questionId']}",
+                    userName=user_name,
+                    questionId=qa['questionId'],
+                    answer=qa['answer'],
+                    isCorrect=False,  # Calculated in main.py
+                    timestamp=timestamp
+                ))
+            
+            answers_by_user[user_name] = answers
         
         return answers_by_user
     

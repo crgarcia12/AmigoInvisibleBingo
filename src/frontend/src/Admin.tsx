@@ -21,13 +21,7 @@ import {
   MenuItem,
 } from '@mui/material'
 import { api } from './api'
-import type { ScoreboardEntry } from './api'
-
-const QUIZ_QUESTIONS = [
-  { id: 'q1', question: '¿Cuál es el país más poblado del mundo?' },
-  { id: 'q2', question: '¿En qué año cayó el Muro de Berlín?' },
-  { id: 'q3', question: '¿Cuál es el océano más grande?' },
-]
+import type { ScoreboardEntry, AdminQuizQuestion } from './api'
 
 const PARTICIPANTS = ['Miriam', 'Paula', 'Adriana', 'Lula', 'Diego', 'Carlos A', 'Padrino']
 
@@ -60,20 +54,34 @@ export default function Admin() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [quizQuestions, setQuizQuestions] = useState<AdminQuizQuestion[]>([])
 
   // Quiz answers
-  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({
-    q1: '',
-    q2: '',
-    q3: '',
-  })
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({})
 
   // Prediction answers
   const [predictionAnswers, setPredictionAnswers] = useState<Record<string, string>>({})
 
   useEffect(() => {
     loadScoreboard()
+    loadQuizQuestions()
   }, [])
+
+  const loadQuizQuestions = async () => {
+    try {
+      const questions = await api.getAdminQuizQuestions()
+      setQuizQuestions(questions)
+      
+      // Initialize quiz answers with correct answers
+      const initialAnswers: Record<string, string> = {}
+      questions.forEach(q => {
+        initialAnswers[q.id] = q.correctAnswer
+      })
+      setQuizAnswers(initialAnswers)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load quiz questions')
+    }
+  }
 
   const loadScoreboard = async () => {
     setLoading(true)
@@ -211,13 +219,14 @@ export default function Admin() {
             Set Quiz Correct Answers
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {QUIZ_QUESTIONS.map((q) => (
+            {quizQuestions.map((q) => (
               <TextField
                 key={q.id}
                 label={q.question}
-                value={quizAnswers[q.id]}
+                value={quizAnswers[q.id] || ''}
                 onChange={(e) => handleQuizAnswerChange(q.id, e.target.value)}
                 fullWidth
+                helperText={`Correct answer: ${q.correctAnswer}`}
               />
             ))}
             <Button

@@ -7,6 +7,24 @@ import uuid
 VALID_PARTICIPANTS = ["Miriam", "Paula", "Adriana", "Lula", "Diego", "Carlos A", "Padrino"]
 
 
+class QuizAnswerData(BaseModel):
+    """Single quiz answer data"""
+    questionId: str
+    answer: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserSubmission(BaseModel):
+    """Complete user submission with predictions and quiz answers"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    userName: str
+    predictions: Dict[str, str] = Field(default_factory=dict)
+    quizAnswers: List[QuizAnswerData] = Field(default_factory=list)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    createdAt: datetime = Field(default_factory=datetime.utcnow)
+    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+
+
 class PredictionInput(BaseModel):
     """Input model for submitting predictions"""
     userName: str

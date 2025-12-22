@@ -83,6 +83,72 @@ export default function Scoreboard({ onBack }: ScoreboardProps) {
         </Alert>
       )}
 
+      {/* Full Scoreboard Table */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
+          🎄 Puntuación Total (Predicciones + Quiz)
+        </Typography>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                <TableCell><strong>Pos</strong></TableCell>
+                <TableCell><strong>Usuario</strong></TableCell>
+                <TableCell align="center"><strong>Quiz</strong></TableCell>
+                <TableCell align="center"><strong>Predicciones</strong></TableCell>
+                <TableCell align="center"><strong>Total</strong></TableCell>
+                <TableCell align="center"><strong>Puntos</strong></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {scoreboard.map((entry, index) => (
+                <TableRow 
+                  key={entry.userName}
+                  sx={{
+                    bgcolor: index === 0 ? '#fff9c4' : index === 1 ? '#f5f5f5' : index === 2 ? '#ffe0b2' : 'transparent',
+                    '&:hover': { bgcolor: '#e3f2fd' }
+                  }}
+                >
+                  <TableCell>
+                    {index === 0 && '🥇'}
+                    {index === 1 && '🥈'}
+                    {index === 2 && '🥉'}
+                    {index > 2 && index + 1}
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: index < 3 ? 600 : 400 }}>
+                    {entry.userName}
+                  </TableCell>
+                  <TableCell align="center">
+                    {entry.quizCorrect}/{entry.quizTotal}
+                  </TableCell>
+                  <TableCell align="center">
+                    {entry.predictionsCorrect}/{entry.predictionsTotal}
+                  </TableCell>
+                  <TableCell align="center">
+                    <strong>{entry.totalCorrect}/{entry.totalQuestions}</strong>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Box
+                      sx={{
+                        display: 'inline-block',
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 1,
+                        bgcolor: index === 0 ? '#fdd835' : index < 3 ? '#d32f2f' : '#757575',
+                        color: 'white',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {entry.totalCorrect}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
       {/* Predictions Only Table */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2, color: '#388e3c' }}>
@@ -142,72 +208,6 @@ export default function Scoreboard({ onBack }: ScoreboardProps) {
                     </TableCell>
                   </TableRow>
                 ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-
-      {/* Full Scoreboard Table */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
-          🎄 Puntuación Total (Predicciones + Quiz)
-        </Typography>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                <TableCell><strong>Pos</strong></TableCell>
-                <TableCell><strong>Usuario</strong></TableCell>
-                <TableCell align="center"><strong>Quiz</strong></TableCell>
-                <TableCell align="center"><strong>Predicciones</strong></TableCell>
-                <TableCell align="center"><strong>Total</strong></TableCell>
-                <TableCell align="center"><strong>%</strong></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {scoreboard.map((entry, index) => (
-                <TableRow 
-                  key={entry.userName}
-                  sx={{
-                    bgcolor: index === 0 ? '#fff9c4' : index === 1 ? '#f5f5f5' : index === 2 ? '#ffe0b2' : 'transparent',
-                    '&:hover': { bgcolor: '#e3f2fd' }
-                  }}
-                >
-                  <TableCell>
-                    {index === 0 && '🥇'}
-                    {index === 1 && '🥈'}
-                    {index === 2 && '🥉'}
-                    {index > 2 && index + 1}
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: index < 3 ? 600 : 400 }}>
-                    {entry.userName}
-                  </TableCell>
-                  <TableCell align="center">
-                    {entry.quizCorrect}/{entry.quizTotal}
-                  </TableCell>
-                  <TableCell align="center">
-                    {entry.predictionsCorrect}/{entry.predictionsTotal}
-                  </TableCell>
-                  <TableCell align="center">
-                    <strong>{entry.totalCorrect}/{entry.totalQuestions}</strong>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box
-                      sx={{
-                        display: 'inline-block',
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: 1,
-                        bgcolor: index === 0 ? '#fdd835' : index < 3 ? '#d32f2f' : '#757575',
-                        color: 'white',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {entry.score.toFixed(1)}%
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
             </TableBody>
           </Table>
         </TableContainer>
