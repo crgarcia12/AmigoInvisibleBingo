@@ -2,7 +2,7 @@ param(
     [switch]$RunLocal
 )
 
-$version = "0.0.10" 
+$version = "0.0.20" 
 
 $registry = "crgarbingoacr.azurecr.io/"
 $backendImage = $registry + "bingo-backend:" + $version

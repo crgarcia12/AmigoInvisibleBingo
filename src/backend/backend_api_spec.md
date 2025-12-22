@@ -340,7 +340,7 @@ Simple health check endpoint (no authentication required).
 {
   "status": "healthy",
   "timestamp": "2024-12-19T10:30:00Z",
-  "version": "1.0.0"
+  "version": "0.0.20"
 }
 ```
 

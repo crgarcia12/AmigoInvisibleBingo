@@ -42,7 +42,7 @@ import { CSS } from '@dnd-kit/utilities'
 import './App.css'
 
 // Code version for tracking deployments
-const FRONTEND_VERSION = "2.0.0"
+const FRONTEND_VERSION = "0.0.20"
 
 const theme = createTheme({
   palette: {

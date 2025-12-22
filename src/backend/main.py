@@ -13,7 +13,7 @@ from database import db
 from quiz_questions import QuizQuestions
 
 # Code version for tracking deployments
-BACKEND_VERSION = "2.0.0"
+BACKEND_VERSION = "0.0.20"
 
 app = FastAPI(
     title="Amigo Invisible Bingo API",
