@@ -159,7 +159,7 @@ function DropZone({ person, prediction, onRemove }: { person: string; prediction
 }
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'admin' | 'scoreboard'>('home')
+  const [currentPage, setCurrentPage] = useState<'home' | 'admin' | 'puntaje'>('home')
   const [userName, setUserName] = useState('')
   const [predictions, setPredictions] = useState<Predictions>({})
   const [submitted, setSubmitted] = useState(false)
@@ -195,6 +195,23 @@ function App() {
     checkHealth()
     loadParticipantsStatus()
     loadBackendVersion()
+    
+    // Handle initial URL path
+    const handleNavigation = () => {
+      const path = window.location.pathname
+      if (path === '/admin') {
+        setCurrentPage('admin')
+      } else if (path === '/puntaje') {
+        setCurrentPage('puntaje')
+      } else {
+        setCurrentPage('home')
+      }
+    }
+    
+    handleNavigation()
+    window.addEventListener('popstate', handleNavigation)
+    
+    return () => window.removeEventListener('popstate', handleNavigation)
   }, [])
 
   const loadBackendVersion = async () => {
@@ -416,20 +433,20 @@ function App() {
       {currentPage === 'admin' ? (
         <>
           <Box sx={{ p: 2, bgcolor: 'background.default' }}>
-            <Button variant="outlined" onClick={() => setCurrentPage('home')}>
+            <Button variant="outlined" onClick={() => { window.history.pushState({}, '', '/'); setCurrentPage('home') }}>
               ← Volver al juego
             </Button>
           </Box>
           <Admin />
         </>
-      ) : currentPage === 'scoreboard' ? (
+      ) : currentPage === 'puntaje' ? (
         <>
           <Box sx={{ p: 2, bgcolor: 'background.default' }}>
-            <Button variant="outlined" onClick={() => setCurrentPage('home')}>
+            <Button variant="outlined" onClick={() => { window.history.pushState({}, '', '/'); setCurrentPage('home') }}>
               ← Volver
             </Button>
           </Box>
-          <Scoreboard onBack={() => setCurrentPage('home')} />
+          <Scoreboard onBack={() => { window.history.pushState({}, '', '/'); setCurrentPage('home') }} />
         </>
       ) : (
         <Box
@@ -716,25 +733,6 @@ function App() {
                 </Typography>
               </Box>
             )}
-
-            <Box textAlign="center" mt={2}>
-              <Button 
-                variant="text" 
-                size="small" 
-                onClick={() => setCurrentPage('scoreboard')}
-                sx={{ fontSize: '0.75rem', mr: 1 }}
-              >
-                Scoreboard
-              </Button>
-              <Button 
-                variant="text" 
-                size="small" 
-                onClick={() => setCurrentPage('admin')}
-                sx={{ fontSize: '0.75rem' }}
-              >
-                Admin
-              </Button>
-            </Box>
             
             <Box textAlign="center" mt={2}>
               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
