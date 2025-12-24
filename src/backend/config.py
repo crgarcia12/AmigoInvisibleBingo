@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     REVEAL_DATE: datetime = datetime(2024, 12, 24, 0, 0, 0)
     PORT: int = 80
     CORS_ORIGINS: str = "*"  # Allow all origins for now
-    VERSION: str = "0.0.21"
+    VERSION: str = "0.0.28"
     
     # Cosmos DB Configuration (from environment variables with defaults)
     COSMOS_ENDPOINT: str = "https://crgar-bingo-db.documents.azure.com:443/"

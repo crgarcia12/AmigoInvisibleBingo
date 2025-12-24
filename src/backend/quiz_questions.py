@@ -56,6 +56,13 @@ class QuizQuestions:
         ),
         QuizQuestionData(
             id="q6",
+            question="Alta en el cielo un águila guerrera, audaz se eleva en vuelo ....",
+            options=["triunfal", "inmortal", "federal"],
+            correctAnswer="triunfal",
+            timeLimit=15
+        ),
+        QuizQuestionData(
+            id="q7",
             question="¿Cómo se llama el conducto que recorre el interior de la mandíbula?",
             options=["Mandibular", "Conducto mentoniano", "Conducto sublingual"],
             correctAnswer="Mandibular",

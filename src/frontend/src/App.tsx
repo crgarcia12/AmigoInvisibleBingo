@@ -42,7 +42,7 @@ import { CSS } from '@dnd-kit/utilities'
 import './App.css'
 
 // Code version for tracking deployments
-const FRONTEND_VERSION = "0.0.21"
+const FRONTEND_VERSION = "0.0.28"
 
 const theme = createTheme({
   palette: {
@@ -228,8 +228,7 @@ function App() {
   useEffect(() => {
     if (userName) {
       loadUserPredictions()
-      // Cargar preguntas del quiz para verificar si hay pendientes
-      checkPendingQuizQuestions()
+      // checkPendingQuizQuestions() se llama desde loadUserPredictions si hay predicciones existentes
     }
   }, [userName])
 
@@ -266,14 +265,17 @@ function App() {
       // Si hay preguntas pendientes y ya envió predicciones
       if (questions.length > 0) {
         // El usuario tiene preguntas pendientes
-        // Por ahora no hacemos nada, pero podríamos mostrar un botón para continuar
+        // Mostrar el quiz automáticamente
+        setQuizQuestions(questions)
+        setShowQuiz(true)
+        setSubmitted(true)
       } else {
         // No hay preguntas pendientes, verificar si ya completó todo
         const score = await api.getCombinedScore(userName)
         if (score.maxTotalPoints > 0) {
-          // Usuario ya completó todo
-          setCombinedScore(score)
-          setShowSummary(true)
+          // Usuario ya completó todo - ir directo a puntaje
+          window.history.pushState({}, '', '/puntaje')
+          setCurrentPage('puntaje')
         }
       }
     } catch (err) {
@@ -292,14 +294,19 @@ function App() {
       const data = await api.getUserPredictions(userName)
       if (data) {
         setPredictions(data.predictions)
-        // No marcar como submitted automáticamente, permitir edición
+        // Si el usuario ya tiene predicciones guardadas, verificar si tiene quiz pendiente
         setSubmitted(false)
+        // Después de cargar predicciones existentes, verificar estado del quiz
+        await checkPendingQuizQuestions()
       } else {
         setPredictions({})
         setSubmitted(false)
       }
     } catch (err) {
-      console.error('Error loading predictions:', err)
+      // 404 es normal - significa que el usuario no ha enviado predicciones aún
+      if (err instanceof Error && !err.message.includes('404')) {
+        console.error('Error loading predictions:', err)
+      }
       // No marcar como offline, 404 es una respuesta válida
       setPredictions({})
       setSubmitted(false)
@@ -415,17 +422,10 @@ function App() {
       if (currentQuestion < quizQuestions.length - 1) {
         setCurrentQuestion(currentQuestion + 1)
       } else {
-        // Quiz finished - load combined score and show summary immediately
-        try {
-          const score = await api.getCombinedScore(userName)
-          setCombinedScore(score)
-          setShowQuiz(false)
-          setShowSummary(true)
-        } catch (err) {
-          console.error('Error loading combined score:', err)
-          setShowQuiz(false)
-          setSubmitted(false)
-        }
+        // Quiz finished - go to scoreboard
+        setShowQuiz(false)
+        window.history.pushState({}, '', '/puntaje')
+        setCurrentPage('puntaje')
       }
     } catch (err) {
       console.error('Error submitting quiz answer:', err)
