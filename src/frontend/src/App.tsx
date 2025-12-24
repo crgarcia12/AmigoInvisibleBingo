@@ -42,7 +42,7 @@ import { CSS } from '@dnd-kit/utilities'
 import './App.css'
 
 // Code version for tracking deployments
-const FRONTEND_VERSION = "0.0.20"
+const FRONTEND_VERSION = "0.0.21"
 
 const theme = createTheme({
   palette: {
@@ -685,7 +685,7 @@ function App() {
                         <Button 
                           variant="contained" 
                           size="small" 
-                          onClick={() => setCurrentPage('scoreboard')}
+                          onClick={() => setCurrentPage('puntaje')}
                           sx={{ mr: 1 }}
                         >
                           Ver Tabla de Posiciones

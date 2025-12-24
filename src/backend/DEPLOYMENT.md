@@ -206,7 +206,7 @@ Expected response:
 {
   "status": "healthy",
   "timestamp": "2024-12-19T10:30:00Z",
-  "version": "0.0.20"
+  "version": "0.0.21"
 }
 ```
 

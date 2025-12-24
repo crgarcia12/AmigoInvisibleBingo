@@ -8,7 +8,7 @@
 # Login to ACR
 az acr login --name crgarbingoacr
 
-$version = "0.0.20"
+$version = "0.0.21"
 $imageName = "crgarbingoacr.azurecr.io/bingo-backend:$version"
 docker build -t $imageName .
 docker push $imageName
@@ -48,7 +48,7 @@ Expected response:
 {
   "status": "healthy",
   "timestamp": "2024-12-19T10:30:00Z",
-  "version": "0.0.20"
+  "version": "0.0.21"
 }
 ```
 
