@@ -86,7 +86,7 @@ export default function Scoreboard({ onBack }: ScoreboardProps) {
       {/* Full Scoreboard Table */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
-          🎄 Puntuación Total (Predicciones + Quiz)
+          🎄 Puntuación Total (Predicciones: 10pts c/u + Preguntas: 1pt c/u)
         </Typography>
         <TableContainer>
           <Table size="small">
@@ -94,10 +94,10 @@ export default function Scoreboard({ onBack }: ScoreboardProps) {
               <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                 <TableCell><strong>Pos</strong></TableCell>
                 <TableCell><strong>Usuario</strong></TableCell>
-                <TableCell align="center"><strong>Quiz</strong></TableCell>
+                <TableCell align="center"><strong>Preguntas</strong></TableCell>
                 <TableCell align="center"><strong>Predicciones</strong></TableCell>
-                <TableCell align="center"><strong>Total</strong></TableCell>
-                <TableCell align="center"><strong>Puntos</strong></TableCell>
+                <TableCell align="center"><strong>Puntos Totales</strong></TableCell>
+                <TableCell align="center"><strong>Score %</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -119,13 +119,13 @@ export default function Scoreboard({ onBack }: ScoreboardProps) {
                     {entry.userName}
                   </TableCell>
                   <TableCell align="center">
-                    {entry.quizCorrect}/{entry.quizTotal}
+                    {entry.quizCorrect}/{entry.quizTotal} ({entry.quizCorrect}pts)
                   </TableCell>
                   <TableCell align="center">
-                    {entry.predictionsCorrect}/{entry.predictionsTotal}
+                    {entry.predictionsCorrect}/{entry.predictionsTotal} ({entry.predictionsCorrect * 10}pts)
                   </TableCell>
                   <TableCell align="center">
-                    <strong>{entry.totalCorrect}/{entry.totalQuestions}</strong>
+                    <strong>{entry.totalPoints}/{entry.maxTotalPoints}</strong>
                   </TableCell>
                   <TableCell align="center">
                     <Box
@@ -139,7 +139,7 @@ export default function Scoreboard({ onBack }: ScoreboardProps) {
                         fontWeight: 600,
                       }}
                     >
-                      {entry.totalCorrect}
+                      {entry.score.toFixed(1)}%
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -152,7 +152,7 @@ export default function Scoreboard({ onBack }: ScoreboardProps) {
       {/* Predictions Only Table */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2, color: '#388e3c' }}>
-          🎯 Predicciones del Amigo Invisible
+          🎯 Predicciones del Amigo Invisible (10pts c/u)
         </Typography>
         <TableContainer>
           <Table size="small">
@@ -203,7 +203,7 @@ export default function Scoreboard({ onBack }: ScoreboardProps) {
                           fontWeight: 600,
                         }}
                       >
-                        {entry.predictionsCorrect}
+                        {entry.predictionsCorrect * 10}
                       </Box>
                     </TableCell>
                   </TableRow>

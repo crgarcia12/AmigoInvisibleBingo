@@ -323,7 +323,7 @@ export default function Admin() {
                 <TableRow>
                   <TableCell><strong>Rank</strong></TableCell>
                   <TableCell><strong>User</strong></TableCell>
-                  <TableCell align="center"><strong>Quiz</strong></TableCell>
+                  <TableCell align="center"><strong>Preguntas</strong></TableCell>
                   <TableCell align="center"><strong>Predictions</strong></TableCell>
                   <TableCell align="center"><strong>Total</strong></TableCell>
                   <TableCell align="center"><strong>Score</strong></TableCell>
@@ -341,7 +341,7 @@ export default function Admin() {
                       {entry.predictionsCorrect}/{entry.predictionsTotal}
                     </TableCell>
                     <TableCell align="center">
-                      {entry.totalCorrect}/{entry.totalQuestions}
+                      {entry.totalPoints}/{entry.maxTotalPoints}
                     </TableCell>
                     <TableCell align="center">
                       <strong>{entry.score}%</strong>

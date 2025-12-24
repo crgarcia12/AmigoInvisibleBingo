@@ -6,7 +6,7 @@ from typing import Dict
 from config import settings
 from models import (
     PredictionInput, Prediction, AnswersInput, CorrectAnswers,
-    ParticipantStatus, Score, VALID_PARTICIPANTS, Question, QuizAnswerInput, QuizAnswer,
+    ParticipantStatus, Score, AMIGOS_INVISIBLES, PLAYERS, Question, QuizAnswerInput, QuizAnswer,
     QuizCorrectAnswersInput, QuizCorrectAnswers, CombinedScore
 )
 from database import db
@@ -79,10 +79,10 @@ async def submit_predictions(prediction_input: PredictionInput):
 async def get_user_predictions(userName: str):
     """Get predictions for a specific user"""
     # Validate userName
-    if userName not in VALID_PARTICIPANTS:
+    if userName not in PLAYERS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid userName. Must be one of: {', '.join(VALID_PARTICIPANTS)}"
+            detail=f"Invalid userName. Must be one of: {', '.join(PLAYERS)}"
         )
     
     prediction = db.get_prediction(userName)
@@ -118,7 +118,7 @@ async def get_participants_status():
     return {
         "success": True,
         "data": {
-            "totalParticipants": len(VALID_PARTICIPANTS),
+            "totalParticipants": len(AMIGOS_INVISIBLES),
             "submittedCount": submitted_count,
             "participants": status_list
         }
@@ -228,10 +228,10 @@ async def get_scores():
 async def get_quiz_questions(userName: str):
     """Get quiz questions for a user (only unanswered ones)"""
     # Validate userName
-    if userName not in VALID_PARTICIPANTS:
+    if userName not in PLAYERS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid userName. Must be one of: {', '.join(VALID_PARTICIPANTS)}"
+            detail=f"Invalid userName. Must be one of: {', '.join(PLAYERS)}"
         )
     
     # Get user's already answered questions
@@ -298,10 +298,10 @@ async def submit_quiz_answer(answer_input: QuizAnswerInput):
 async def get_user_quiz_score(userName: str):
     """Get quiz score for a specific user"""
     # Validate userName
-    if userName not in VALID_PARTICIPANTS:
+    if userName not in PLAYERS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid userName. Must be one of: {', '.join(VALID_PARTICIPANTS)}"
+            detail=f"Invalid userName. Must be one of: {', '.join(PLAYERS)}"
         )
     
     # Get user's answers
@@ -390,10 +390,10 @@ async def get_admin_quiz_questions():
 async def get_combined_score(userName: str):
     """Get combined score (quiz + predictions) for a user"""
     # Validate userName
-    if userName not in VALID_PARTICIPANTS:
+    if userName not in PLAYERS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid userName. Must be one of: {', '.join(VALID_PARTICIPANTS)}"
+            detail=f"Invalid userName. Must be one of: {', '.join(PLAYERS)}"
         )
     
     # Check if admin has set correct answers
@@ -423,10 +423,18 @@ async def get_combined_score(userName: str):
                 if predictions_correct_answers.answers.get(giver) == receiver:
                     predictions_correct += 1
     
-    # Calculate totals
-    total_correct = quiz_correct + predictions_correct
-    total_questions = quiz_total + predictions_total
-    score = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0.0
+    # Calculate totals with weighted scoring
+    # Predictions: 10 points each
+    # Quiz questions: 1 point each
+    prediction_points = predictions_correct * 10
+    quiz_points = quiz_correct * 1
+    total_points = prediction_points + quiz_points
+    
+    max_prediction_points = predictions_total * 10
+    max_quiz_points = quiz_total * 1
+    max_total_points = max_prediction_points + max_quiz_points
+    
+    score = round((total_points / max_total_points) * 100, 2) if max_total_points > 0 else 0.0
     
     return {
         "success": True,
@@ -436,8 +444,8 @@ async def get_combined_score(userName: str):
             "quizTotal": quiz_total,
             "predictionsCorrect": predictions_correct,
             "predictionsTotal": predictions_total,
-            "totalCorrect": total_correct,
-            "totalQuestions": total_questions,
+            "totalPoints": total_points,
+            "maxTotalPoints": max_total_points,
             "score": score,
             "hasAdminAnswers": has_admin_answers
         }
@@ -477,10 +485,18 @@ async def get_scoreboard():
                 if predictions_correct_answers.answers.get(giver) == receiver:
                     predictions_correct += 1
         
-        # Calculate totals
-        total_correct = quiz_correct + predictions_correct
-        total_questions = quiz_total + predictions_total
-        score = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0.0
+        # Calculate totals with weighted scoring
+        # Predictions: 10 points each
+        # Quiz questions: 1 point each
+        prediction_points = predictions_correct * 10
+        quiz_points = quiz_correct * 1
+        total_points = prediction_points + quiz_points
+        
+        max_prediction_points = predictions_total * 10
+        max_quiz_points = quiz_total * 1
+        max_total_points = max_prediction_points + max_quiz_points
+        
+        score = round((total_points / max_total_points) * 100, 2) if max_total_points > 0 else 0.0
         
         scoreboard.append({
             "userName": user_name,
@@ -488,13 +504,13 @@ async def get_scoreboard():
             "quizTotal": quiz_total,
             "predictionsCorrect": predictions_correct,
             "predictionsTotal": predictions_total,
-            "totalCorrect": total_correct,
-            "totalQuestions": total_questions,
+            "totalPoints": total_points,
+            "maxTotalPoints": max_total_points,
             "score": score
         })
     
-    # Sort by score descending
-    scoreboard.sort(key=lambda x: (x['score'], x['totalCorrect']), reverse=True)
+    # Sort by score descending, then by total points as tiebreaker
+    scoreboard.sort(key=lambda x: (x['score'], x['totalPoints']), reverse=True)
     
     return {
         "success": True,

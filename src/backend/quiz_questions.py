@@ -22,24 +22,44 @@ class QuizQuestions:
     QUESTIONS: List[QuizQuestionData] = [
         QuizQuestionData(
             id="q1",
-            question="¿Cuál es el país más poblado del mundo?",
-            options=["India", "Estados Unidos", "China", "Indonesia"],
-            correctAnswer="China",
-            timeLimit=15
+            question="¿Quién tiene el mayor coeficiente intelectual de la mesa?",
+            options=["Francina", "Paula", "Lula"],
+            correctAnswer="Francina",
+            timeLimit=10
         ),
         QuizQuestionData(
             id="q2",
-            question="¿En qué año cayó el Muro de Berlín?",
-            options=["1987", "1989", "1991", "1993"],
-            correctAnswer="1989",
-            timeLimit=20
+            question="¿Cuál es el número de calzado que usa Lionel Messi de chancletas?",
+            options=["39/40", "42/43", "38"],
+            correctAnswer="42/43",
+            timeLimit=10
         ),
         QuizQuestionData(
             id="q3",
-            question="¿Cuál es el océano más grande?",
-            options=["Atlántico", "Índico", "Ártico", "Pacífico"],
-            correctAnswer="Pacífico",
+            question="¿Cuál es la provincia más grande de la Argentina en superficie?",
+            options=["Santa Cruz", "Buenos Aires", "Chubut"],
+            correctAnswer="Buenos Aires",
             timeLimit=10
+        ),
+        QuizQuestionData(
+            id="q4",
+            question="¿Quien es panelista rotativa de LAM?",
+            options=["Ángel de Brito", "Luis Ventura", "Adabel Guerrero"],
+            correctAnswer="Adabel Guerrero",
+            timeLimit=10
+        ),QuizQuestionData(
+            id="q5",
+            question="¿De dónde proviene el nombre «alpargata»?",
+            options=["Arabe", "Latín", "indígena"],
+            correctAnswer="Arabe",
+            timeLimit=10
+        ),
+        QuizQuestionData(
+            id="q6",
+            question="¿Cómo se llama el conducto que recorre el interior de la mandíbula?",
+            options=["Mandibular", "Conducto mentoniano", "Conducto sublingual"],
+            correctAnswer="Mandibular",
+            timeLimit=15
         )
     ]
     

@@ -59,7 +59,8 @@ const theme = createTheme({
   },
 })
 
-const PARTICIPANTS = ['Miriam', 'Paula', 'Adriana', 'Lula', 'Diego', 'Carlos A', 'Padrino']
+const AMIGOS_INVISIBLES = ['Miriam', 'Paula', 'Adriana', 'Lula', 'Diego', 'Carlos A', 'Padrino']
+const PLAYERS = [...AMIGOS_INVISIBLES, 'Fabian']
 
 interface Predictions {
   [key: string]: string
@@ -269,7 +270,7 @@ function App() {
       } else {
         // No hay preguntas pendientes, verificar si ya completó todo
         const score = await api.getCombinedScore(userName)
-        if (score.totalQuestions > 0) {
+        if (score.maxTotalPoints > 0) {
           // Usuario ya completó todo
           setCombinedScore(score)
           setShowSummary(true)
@@ -370,7 +371,7 @@ function App() {
       return
     }
 
-    const incomplete = PARTICIPANTS.some((person) => !predictions[person])
+    const incomplete = AMIGOS_INVISIBLES.some((person) => !predictions[person])
     if (incomplete) {
       setError('Por favor completa todas las predicciones')
       return
@@ -523,7 +524,7 @@ function App() {
                 <FormControl fullWidth sx={{ mb: 2 }} size="small">
                   <InputLabel>Tu Nombre</InputLabel>
                   <Select value={userName} onChange={(e) => setUserName(e.target.value)} label="Tu Nombre" disabled={loading}>
-                    {PARTICIPANTS.map((name) => (
+                    {PLAYERS.map((name) => (
                       <MenuItem key={name} value={name}>
                         {name}
                       </MenuItem>
@@ -551,7 +552,7 @@ function App() {
                         }}
                       >
                         <Box display="flex" flexWrap="wrap" gap={1}>
-                          {PARTICIPANTS.map((name) => (
+                          {AMIGOS_INVISIBLES.map((name) => (
                             <DraggableName key={name} name={name} isUsed={usedNames.has(name)} />
                           ))}
                         </Box>
@@ -559,7 +560,7 @@ function App() {
                     </Box>
 
                     <Stack spacing={1}>
-                      {PARTICIPANTS.map((person) => (
+                      {AMIGOS_INVISIBLES.map((person) => (
                         <DropZone
                           key={person}
                           person={person}
@@ -613,7 +614,7 @@ function App() {
                         🎯 Tus Predicciones
                       </Typography>
                       <Stack spacing={1}>
-                        {PARTICIPANTS.map((person) => (
+                        {AMIGOS_INVISIBLES.map((person) => (
                           <Box
                             key={person}
                             sx={{
@@ -651,7 +652,7 @@ function App() {
                         <>
                           <Box sx={{ mb: 2, p: 2, bgcolor: '#e3f2fd', borderRadius: 1 }}>
                             <Typography variant="h5" sx={{ fontWeight: 600, textAlign: 'center', color: '#1976d2' }}>
-                              {combinedScore.totalCorrect}/{combinedScore.totalQuestions}
+                              {combinedScore.totalPoints}/{combinedScore.maxTotalPoints} puntos
                             </Typography>
                             <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
                               Score: <strong>{combinedScore.score.toFixed(1)}%</strong>
@@ -661,18 +662,24 @@ function App() {
                           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                             <Box sx={{ flex: 1, p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1 }}>
                               <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Quiz
+                                Preguntas (1pt c/u)
                               </Typography>
                               <Typography variant="h6">
                                 {combinedScore.quizCorrect}/{combinedScore.quizTotal}
                               </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {combinedScore.quizCorrect} pts
+                              </Typography>
                             </Box>
                             <Box sx={{ flex: 1, p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1 }}>
                               <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Predicciones
+                                Predicciones (10pts c/u)
                               </Typography>
                               <Typography variant="h6">
                                 {combinedScore.predictionsCorrect}/{combinedScore.predictionsTotal}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {combinedScore.predictionsCorrect * 10} pts
                               </Typography>
                             </Box>
                           </Box>
@@ -718,7 +725,7 @@ function App() {
                 ) : quizQuestions.length > 0 && quizQuestions[currentQuestion] ? (
                   <>
                     <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem', fontWeight: 600, mb: 2 }}>
-                      🎮 Quiz - {userName}
+                      🎮 Preguntas - {userName}
                     </Typography>
                     <Card sx={{ p: 2, mb: 2 }}>
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
@@ -785,7 +792,7 @@ function App() {
             {submittedCount > 0 && !showQuiz && (
               <Box mt={2}>
                 <Typography variant="caption" color="text.secondary" display="block" textAlign="center">
-                  Participantes: {submittedCount}/{PARTICIPANTS.length}
+                  Participantes: {submittedCount}/{AMIGOS_INVISIBLES.length}
                 </Typography>
               </Box>
             )}

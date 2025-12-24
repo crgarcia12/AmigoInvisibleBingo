@@ -4,7 +4,10 @@ from datetime import datetime
 import uuid
 
 
-VALID_PARTICIPANTS = ["Miriam", "Paula", "Adriana", "Lula", "Diego", "Carlos A", "Padrino"]
+# Participants in the amigo invisible exchange (appear as options in predictions)
+AMIGOS_INVISIBLES = ["Miriam", "Paula", "Adriana", "Lula", "Diego", "Carlos A", "Padrino"]
+# All players who can make predictions and answer quiz questions
+PLAYERS = AMIGOS_INVISIBLES + ["Fabian"]
 
 
 class QuizAnswerData(BaseModel):
@@ -32,21 +35,21 @@ class PredictionInput(BaseModel):
 
     @validator('userName')
     def validate_user_name(cls, v):
-        if v not in VALID_PARTICIPANTS:
-            raise ValueError(f'userName must be one of: {", ".join(VALID_PARTICIPANTS)}')
+        if v not in PLAYERS:
+            raise ValueError(f'userName must be one of: {", ".join(PLAYERS)}')
         return v
 
     @validator('predictions')
     def validate_predictions(cls, v, values):
         # Check all participants are present
-        if set(v.keys()) != set(VALID_PARTICIPANTS):
-            raise ValueError(f'predictions must contain all participants: {", ".join(VALID_PARTICIPANTS)}')
+        if set(v.keys()) != set(AMIGOS_INVISIBLES):
+            raise ValueError(f'predictions must contain all participants: {", ".join(AMIGOS_INVISIBLES)}')
         
         # Check no one predicts themselves
         for giver, receiver in v.items():
             if giver == receiver:
                 raise ValueError(f'{giver} cannot give to themselves')
-            if receiver not in VALID_PARTICIPANTS:
+            if receiver not in AMIGOS_INVISIBLES:
                 raise ValueError(f'Invalid receiver: {receiver}')
         
         return v
@@ -69,14 +72,14 @@ class AnswersInput(BaseModel):
     @validator('answers')
     def validate_answers(cls, v):
         # Check all participants are present
-        if set(v.keys()) != set(VALID_PARTICIPANTS):
-            raise ValueError(f'answers must contain all participants: {", ".join(VALID_PARTICIPANTS)}')
+        if set(v.keys()) != set(AMIGOS_INVISIBLES):
+            raise ValueError(f'answers must contain all participants: {", ".join(AMIGOS_INVISIBLES)}')
         
         # Check no one gives to themselves
         for giver, receiver in v.items():
             if giver == receiver:
                 raise ValueError(f'{giver} cannot give to themselves')
-            if receiver not in VALID_PARTICIPANTS:
+            if receiver not in AMIGOS_INVISIBLES:
                 raise ValueError(f'Invalid receiver: {receiver}')
         
         return v
@@ -136,8 +139,8 @@ class QuizAnswerInput(BaseModel):
 
     @validator('userName')
     def validate_user_name(cls, v):
-        if v not in VALID_PARTICIPANTS:
-            raise ValueError(f'userName must be one of: {", ".join(VALID_PARTICIPANTS)}')
+        if v not in PLAYERS:
+            raise ValueError(f'userName must be one of: {", ".join(PLAYERS)}')
         return v
 
 

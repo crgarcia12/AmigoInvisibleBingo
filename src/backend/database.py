@@ -1,7 +1,7 @@
 from typing import Dict, Optional, List
 from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions
-from models import Prediction, CorrectAnswers, VALID_PARTICIPANTS, QuizAnswer, QuizCorrectAnswers, UserSubmission, QuizAnswerData
+from models import Prediction, CorrectAnswers, AMIGOS_INVISIBLES, PLAYERS, QuizAnswer, QuizCorrectAnswers, UserSubmission, QuizAnswerData
 from config import settings
 
 
@@ -145,7 +145,7 @@ class Database:
         """Get status of all participants"""
         predictions = self.get_all_predictions()
         status_list = []
-        for participant in VALID_PARTICIPANTS:
+        for participant in AMIGOS_INVISIBLES:
             prediction = predictions.get(participant)
             status_list.append({
                 "userName": participant,

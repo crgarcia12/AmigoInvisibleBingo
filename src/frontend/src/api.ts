@@ -71,8 +71,8 @@ interface CombinedScore {
   quizTotal: number
   predictionsCorrect: number
   predictionsTotal: number
-  totalCorrect: number
-  totalQuestions: number
+  totalPoints: number
+  maxTotalPoints: number
   score: number
   hasAdminAnswers: boolean
 }
@@ -83,8 +83,8 @@ interface ScoreboardEntry {
   quizTotal: number
   predictionsCorrect: number
   predictionsTotal: number
-  totalCorrect: number
-  totalQuestions: number
+  totalPoints: number
+  maxTotalPoints: number
   score: number
 }
 
