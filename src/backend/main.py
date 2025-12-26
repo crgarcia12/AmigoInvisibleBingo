@@ -6,10 +6,14 @@ from typing import Dict
 from config import settings
 from models import (
     PredictionInput, Prediction, AnswersInput, CorrectAnswers,
-    ParticipantStatus, Score, VALID_PARTICIPANTS
+    ParticipantStatus, Score, AMIGOS_INVISIBLES, PLAYERS, Question, QuizAnswerInput, QuizAnswer,
+    QuizCorrectAnswersInput, QuizCorrectAnswers, CombinedScore
 )
 from database import db
+from quiz_questions import QuizQuestions
 
+# Code version for tracking deployments
+BACKEND_VERSION = "0.0.28"
 
 app = FastAPI(
     title="Amigo Invisible Bingo API",
@@ -20,7 +24,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -75,10 +79,10 @@ async def submit_predictions(prediction_input: PredictionInput):
 async def get_user_predictions(userName: str):
     """Get predictions for a specific user"""
     # Validate userName
-    if userName not in VALID_PARTICIPANTS:
+    if userName not in PLAYERS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid userName. Must be one of: {', '.join(VALID_PARTICIPANTS)}"
+            detail=f"Invalid userName. Must be one of: {', '.join(PLAYERS)}"
         )
     
     prediction = db.get_prediction(userName)
@@ -114,7 +118,7 @@ async def get_participants_status():
     return {
         "success": True,
         "data": {
-            "totalParticipants": len(VALID_PARTICIPANTS),
+            "totalParticipants": len(AMIGOS_INVISIBLES),
             "submittedCount": submitted_count,
             "participants": status_list
         }
@@ -156,7 +160,7 @@ async def get_all_predictions():
     }
 
 
-@app.post("/api/admin/answers")
+@app.post("/api/admin/set-correct-answers")
 async def set_correct_answers(answers_input: AnswersInput):
     """Set correct answers - admin only"""
     try:
@@ -217,6 +221,310 @@ async def get_scores():
         "canReveal": True,
         "hasCorrectAnswers": True,
         "data": scores
+    }
+
+
+@app.get("/api/quiz/questions/{userName}")
+async def get_quiz_questions(userName: str):
+    """Get quiz questions for a user (only unanswered ones)"""
+    # Validate userName
+    if userName not in PLAYERS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid userName. Must be one of: {', '.join(PLAYERS)}"
+        )
+    
+    # Get user's already answered questions
+    answered_questions = db.get_user_quiz_answers(userName)
+    answered_ids = {answer.questionId for answer in answered_questions}
+    
+    # Get all questions without correct answers
+    all_questions = QuizQuestions.get_questions_for_user()
+    
+    # Return only unanswered questions
+    questions_data = [
+        q for q in all_questions
+        if q["id"] not in answered_ids
+    ]
+    
+    return {
+        "success": True,
+        "data": questions_data
+    }
+
+
+@app.post("/api/quiz/answer", status_code=status.HTTP_201_CREATED)
+async def submit_quiz_answer(answer_input: QuizAnswerInput):
+    """Submit a quiz answer"""
+    # Get the correct answer for this question
+    correct_answer = QuizQuestions.get_correct_answer(answer_input.questionId)
+    
+    if not correct_answer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Question not found"
+        )
+    
+    # Check if answer is correct
+    is_correct = answer_input.answer == correct_answer
+    
+    # Create quiz answer
+    quiz_answer = QuizAnswer(
+        userName=answer_input.userName,
+        questionId=answer_input.questionId,
+        answer=answer_input.answer,
+        isCorrect=is_correct
+    )
+    
+    try:
+        # Save to database
+        saved_answer = db.save_quiz_answer(quiz_answer)
+        
+        return {
+            "success": True,
+            "data": {
+                "questionId": saved_answer.questionId,
+                "isCorrect": saved_answer.isCorrect
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@app.get("/api/quiz/score/{userName}")
+async def get_user_quiz_score(userName: str):
+    """Get quiz score for a specific user"""
+    # Validate userName
+    if userName not in PLAYERS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid userName. Must be one of: {', '.join(PLAYERS)}"
+        )
+    
+    # Get user's answers
+    answers = db.get_user_quiz_answers(userName)
+    
+    if not answers:
+        return {
+            "success": True,
+            "data": {
+                "userName": userName,
+                "correctAnswers": 0,
+                "totalQuestions": 0,
+                "score": 0.0,
+                "answers": []
+            }
+        }
+    
+    # Calculate isCorrect for each answer based on quiz questions
+    correct_count = 0
+    answers_data = []
+    for answer in answers:
+        correct_answer = QuizQuestions.get_correct_answer(answer.questionId)
+        is_correct = correct_answer == answer.answer if correct_answer else False
+        
+        if is_correct:
+            correct_count += 1
+        
+        answers_data.append({
+            "questionId": answer.questionId,
+            "answer": answer.answer,
+            "isCorrect": is_correct,
+            "timestamp": answer.timestamp.isoformat() + "Z"
+        })
+    
+    total_count = len(answers)
+    score = round((correct_count / total_count) * 100, 2) if total_count > 0 else 0.0
+    
+    return {
+        "success": True,
+        "data": {
+            "userName": userName,
+            "correctAnswers": correct_count,
+            "totalQuestions": total_count,
+            "score": score,
+            "answers": answers_data
+        }
+    }
+
+
+@app.post("/api/admin/quiz-answers")
+async def set_quiz_correct_answers(answers_input: QuizCorrectAnswersInput):
+    """Set correct quiz answers - admin only"""
+    try:
+        correct_answers = QuizCorrectAnswers(
+            answers=answers_input.answers
+        )
+        
+        saved_answers = db.save_quiz_correct_answers(correct_answers)
+        
+        return {
+            "success": True,
+            "message": "Quiz correct answers saved successfully",
+            "data": {
+                "answers": saved_answers.answers,
+                "updatedAt": saved_answers.updatedAt.isoformat() + "Z"
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@app.get("/api/admin/quiz-questions")
+async def get_admin_quiz_questions():
+    """Get quiz questions with correct answers - admin only"""
+    questions = QuizQuestions.get_questions_for_admin()
+    return {
+        "success": True,
+        "data": questions
+    }
+
+
+@app.get("/api/combined-score/{userName}")
+async def get_combined_score(userName: str):
+    """Get combined score (quiz + predictions) for a user"""
+    # Validate userName
+    if userName not in PLAYERS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid userName. Must be one of: {', '.join(PLAYERS)}"
+        )
+    
+    # Check if admin has set correct answers
+    quiz_correct_answers = db.get_quiz_correct_answers()
+    predictions_correct_answers = db.get_correct_answers()
+    has_admin_answers = quiz_correct_answers is not None and predictions_correct_answers is not None
+    
+    # Get user's quiz answers
+    quiz_answers = db.get_user_quiz_answers(userName)
+    quiz_correct = 0
+    quiz_total = len(quiz_answers)
+    
+    if has_admin_answers and quiz_correct_answers:
+        for answer in quiz_answers:
+            if quiz_correct_answers.answers.get(answer.questionId) == answer.answer:
+                quiz_correct += 1
+    
+    # Get user's predictions
+    user_prediction = db.get_prediction(userName)
+    predictions_correct = 0
+    predictions_total = 0
+    
+    if user_prediction:
+        predictions_total = len(user_prediction.predictions)
+        if has_admin_answers and predictions_correct_answers:
+            for giver, receiver in user_prediction.predictions.items():
+                if predictions_correct_answers.answers.get(giver) == receiver:
+                    predictions_correct += 1
+    
+    # Calculate totals with weighted scoring
+    # Predictions: 10 points each
+    # Quiz questions: 1 point each
+    prediction_points = predictions_correct * 10
+    quiz_points = quiz_correct * 1
+    total_points = prediction_points + quiz_points
+    
+    max_prediction_points = predictions_total * 10
+    max_quiz_points = quiz_total * 1
+    max_total_points = max_prediction_points + max_quiz_points
+    
+    score = round((total_points / max_total_points) * 100, 2) if max_total_points > 0 else 0.0
+    
+    return {
+        "success": True,
+        "data": {
+            "userName": userName,
+            "quizCorrect": quiz_correct,
+            "quizTotal": quiz_total,
+            "predictionsCorrect": predictions_correct,
+            "predictionsTotal": predictions_total,
+            "totalPoints": total_points,
+            "maxTotalPoints": max_total_points,
+            "score": score,
+            "hasAdminAnswers": has_admin_answers
+        }
+    }
+
+
+@app.get("/api/scoreboard")
+async def get_scoreboard():
+    """Get scoreboard with all users ordered by score"""
+    # Check if admin has set correct answers
+    quiz_correct_answers = db.get_quiz_correct_answers()
+    predictions_correct_answers = db.get_correct_answers()
+    has_admin_answers = quiz_correct_answers is not None or predictions_correct_answers is not None
+    
+    # Get all users who have submitted
+    predictions = db.get_all_predictions()
+    scoreboard = []
+    
+    for user_name in predictions.keys():
+        # Get quiz answers
+        quiz_answers = db.get_user_quiz_answers(user_name)
+        quiz_correct = 0
+        quiz_total = len(quiz_answers)
+        
+        if has_admin_answers and quiz_correct_answers:
+            for answer in quiz_answers:
+                if quiz_correct_answers.answers.get(answer.questionId) == answer.answer:
+                    quiz_correct += 1
+        
+        # Get predictions
+        user_prediction = predictions[user_name]
+        predictions_correct = 0
+        predictions_total = len(user_prediction.predictions)
+        
+        if has_admin_answers and predictions_correct_answers:
+            for giver, receiver in user_prediction.predictions.items():
+                if predictions_correct_answers.answers.get(giver) == receiver:
+                    predictions_correct += 1
+        
+        # Calculate totals with weighted scoring
+        # Predictions: 10 points each
+        # Quiz questions: 1 point each
+        prediction_points = predictions_correct * 10
+        quiz_points = quiz_correct * 1
+        total_points = prediction_points + quiz_points
+        
+        max_prediction_points = predictions_total * 10
+        max_quiz_points = quiz_total * 1
+        max_total_points = max_prediction_points + max_quiz_points
+        
+        score = round((total_points / max_total_points) * 100, 2) if max_total_points > 0 else 0.0
+        
+        scoreboard.append({
+            "userName": user_name,
+            "quizCorrect": quiz_correct,
+            "quizTotal": quiz_total,
+            "predictionsCorrect": predictions_correct,
+            "predictionsTotal": predictions_total,
+            "totalPoints": total_points,
+            "maxTotalPoints": max_total_points,
+            "score": score
+        })
+    
+    # Sort by score descending, then by total points as tiebreaker
+    scoreboard.sort(key=lambda x: (x['score'], x['totalPoints']), reverse=True)
+    
+    return {
+        "success": True,
+        "hasAdminAnswers": has_admin_answers,
+        "data": scoreboard
+    }
+
+
+@app.get("/api/version")
+async def get_version():
+    """Get backend version information"""
+    return {
+        "backend": BACKEND_VERSION,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
 

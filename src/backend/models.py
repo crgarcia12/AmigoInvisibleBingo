@@ -1,10 +1,31 @@
 from pydantic import BaseModel, Field, validator
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from datetime import datetime
 import uuid
 
 
-VALID_PARTICIPANTS = ["Miriam", "Paula", "Adriana", "Lula", "Diego", "Carlos A", "Padrino"]
+# Participants in the amigo invisible exchange (appear as options in predictions)
+AMIGOS_INVISIBLES = ["Miriam", "Paula", "Adriana", "Lula", "Diego", "Carlos A", "Padrino"]
+# All players who can make predictions and answer quiz questions
+PLAYERS = AMIGOS_INVISIBLES + ["Fabian"]
+
+
+class QuizAnswerData(BaseModel):
+    """Single quiz answer data"""
+    questionId: str
+    answer: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserSubmission(BaseModel):
+    """Complete user submission with predictions and quiz answers"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    userName: str
+    predictions: Dict[str, str] = Field(default_factory=dict)
+    quizAnswers: List[QuizAnswerData] = Field(default_factory=list)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    createdAt: datetime = Field(default_factory=datetime.utcnow)
+    updatedAt: datetime = Field(default_factory=datetime.utcnow)
 
 
 class PredictionInput(BaseModel):
@@ -14,21 +35,21 @@ class PredictionInput(BaseModel):
 
     @validator('userName')
     def validate_user_name(cls, v):
-        if v not in VALID_PARTICIPANTS:
-            raise ValueError(f'userName must be one of: {", ".join(VALID_PARTICIPANTS)}')
+        if v not in PLAYERS:
+            raise ValueError(f'userName must be one of: {", ".join(PLAYERS)}')
         return v
 
     @validator('predictions')
     def validate_predictions(cls, v, values):
         # Check all participants are present
-        if set(v.keys()) != set(VALID_PARTICIPANTS):
-            raise ValueError(f'predictions must contain all participants: {", ".join(VALID_PARTICIPANTS)}')
+        if set(v.keys()) != set(AMIGOS_INVISIBLES):
+            raise ValueError(f'predictions must contain all participants: {", ".join(AMIGOS_INVISIBLES)}')
         
         # Check no one predicts themselves
         for giver, receiver in v.items():
             if giver == receiver:
                 raise ValueError(f'{giver} cannot give to themselves')
-            if receiver not in VALID_PARTICIPANTS:
+            if receiver not in AMIGOS_INVISIBLES:
                 raise ValueError(f'Invalid receiver: {receiver}')
         
         return v
@@ -51,14 +72,14 @@ class AnswersInput(BaseModel):
     @validator('answers')
     def validate_answers(cls, v):
         # Check all participants are present
-        if set(v.keys()) != set(VALID_PARTICIPANTS):
-            raise ValueError(f'answers must contain all participants: {", ".join(VALID_PARTICIPANTS)}')
+        if set(v.keys()) != set(AMIGOS_INVISIBLES):
+            raise ValueError(f'answers must contain all participants: {", ".join(AMIGOS_INVISIBLES)}')
         
         # Check no one gives to themselves
         for giver, receiver in v.items():
             if giver == receiver:
                 raise ValueError(f'{giver} cannot give to themselves')
-            if receiver not in VALID_PARTICIPANTS:
+            if receiver not in AMIGOS_INVISIBLES:
                 raise ValueError(f'Invalid receiver: {receiver}')
         
         return v
@@ -98,4 +119,70 @@ class ErrorResponse(BaseModel):
     success: bool = False
     message: str
     errorCode: Optional[str] = None
+
+
+# Quiz models
+class Question(BaseModel):
+    """Quiz question model"""
+    id: str
+    question: str
+    options: List[str]
+    correctAnswer: str
+    timeLimit: int  # Time limit in seconds
+
+
+class QuizAnswerInput(BaseModel):
+    """Input model for submitting a quiz answer"""
+    userName: str
+    questionId: str
+    answer: str
+
+    @validator('userName')
+    def validate_user_name(cls, v):
+        if v not in PLAYERS:
+            raise ValueError(f'userName must be one of: {", ".join(PLAYERS)}')
+        return v
+
+
+class QuizAnswer(BaseModel):
+    """Quiz answer stored in database"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    userName: str
+    questionId: str
+    answer: str
+    isCorrect: bool
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserQuizScore(BaseModel):
+    """Quiz score for a user"""
+    userName: str
+    correctAnswers: int
+    totalQuestions: int
+    score: float
+    answers: List[QuizAnswer]
+
+
+class QuizCorrectAnswersInput(BaseModel):
+    """Input model for setting correct quiz answers"""
+    answers: Dict[str, str]  # questionId -> correctAnswer
+
+
+class QuizCorrectAnswers(BaseModel):
+    """Correct quiz answers stored by admin"""
+    answers: Dict[str, str]
+    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CombinedScore(BaseModel):
+    """Combined score including predictions and quiz"""
+    userName: str
+    quizCorrect: int
+    quizTotal: int
+    predictionsCorrect: int
+    predictionsTotal: int
+    totalCorrect: int
+    totalQuestions: int
+    score: float
+    hasAdminAnswers: bool
+

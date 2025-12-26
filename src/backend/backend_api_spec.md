@@ -340,7 +340,7 @@ Simple health check endpoint (no authentication required).
 {
   "status": "healthy",
   "timestamp": "2024-12-19T10:30:00Z",
-  "version": "1.0.0"
+  "version": "0.0.28"
 }
 ```
 
@@ -365,6 +365,94 @@ All error responses follow this format:
 - **403** - Forbidden (action not allowed, e.g., before reveal date)
 - **404** - Not Found (resource doesn't exist)
 - **500** - Internal Server Error
+
+---
+
+## Quiz Endpoints
+
+### Get Quiz Questions
+**GET** `/api/quiz/questions/{userName}`
+
+Returns quiz questions that the user hasn't answered yet.
+
+**Path Parameters**:
+- `userName`: Name of the participant
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "q1",
+      "question": "¿Cuántas personas participan en el amigo invisible?",
+      "options": ["5", "6", "7", "8"]
+    }
+  ]
+}
+```
+
+**Note**: Only returns questions the user hasn't answered. If all questions are answered, returns empty array.
+
+---
+
+### Submit Quiz Answer
+**POST** `/api/quiz/answer`
+
+Submit an answer for a quiz question.
+
+**Request Body**:
+```json
+{
+  "userName": "Carlos A",
+  "questionId": "q1",
+  "answer": "7"
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "success": true,
+  "data": {
+    "questionId": "q1",
+    "isCorrect": true
+  }
+}
+```
+
+**Validation Rules**:
+- `userName` must be one of the valid participants
+- `questionId` must exist
+- User cannot answer the same question twice (returns 400 error)
+
+---
+
+### Get User Quiz Score
+**GET** `/api/quiz/score/{userName}`
+
+Get the quiz score and all answers for a specific user.
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "userName": "Carlos A",
+    "correctAnswers": 2,
+    "totalQuestions": 3,
+    "score": 66.67,
+    "answers": [
+      {
+        "questionId": "q1",
+        "answer": "7",
+        "isCorrect": true,
+        "timestamp": "2024-12-19T10:30:00Z"
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -402,3 +490,4 @@ COSMOS_KEY=your-cosmos-db-key-here
 4. **Logging**: Log all API requests with timestamps and user information
 5. **Validation**: Validate all inputs thoroughly to prevent injection attacks
 6. **HTTPS**: Use HTTPS in production for secure API key transmission
+7. **Quiz Data**: Quiz questions can be seeded using the `seed_quiz_questions.py` script

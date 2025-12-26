@@ -1,5 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-const API_KEY = import.meta.env.VITE_API_KEY || 'your-api-key-here'
+const windowEnv = (window as any).ENV?.VITE_API_URL
+const API_BASE_URL = (windowEnv && !windowEnv.includes('${')) 
+  ? windowEnv 
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
 
 interface Predictions {
   [key: string]: string
@@ -30,9 +32,69 @@ interface StatusResponse {
   participants: ParticipantStatus[]
 }
 
+interface QuizQuestion {
+  id: string
+  question: string
+  options: string[]
+  timeLimit: number
+}
+
+interface AdminQuizQuestion {
+  id: string
+  question: string
+  options: string[]
+  correctAnswer: string
+  timeLimit: number
+}
+
+interface QuizAnswerResponse {
+  questionId: string
+  isCorrect: boolean
+}
+
+interface QuizScoreResponse {
+  userName: string
+  correctAnswers: number
+  totalQuestions: number
+  score: number
+  answers: Array<{
+    questionId: string
+    answer: string
+    isCorrect: boolean
+    timestamp: string
+  }>
+}
+
+interface CombinedScore {
+  userName: string
+  quizCorrect: number
+  quizTotal: number
+  predictionsCorrect: number
+  predictionsTotal: number
+  totalPoints: number
+  maxTotalPoints: number
+  score: number
+  hasAdminAnswers: boolean
+}
+
+interface ScoreboardEntry {
+  userName: string
+  quizCorrect: number
+  quizTotal: number
+  predictionsCorrect: number
+  predictionsTotal: number
+  totalPoints: number
+  maxTotalPoints: number
+  score: number
+}
+
+interface ScoreboardResponse {
+  hasAdminAnswers: boolean
+  data: ScoreboardEntry[]
+}
+
 const headers = {
   'Content-Type': 'application/json',
-  'X-API-Key': API_KEY,
 }
 
 export const api = {
@@ -124,4 +186,155 @@ export const api = {
       return false
     }
   },
+
+  async getQuizQuestions(userName: string): Promise<QuizQuestion[]> {
+    const response = await fetch(`${API_BASE_URL}/api/quiz/questions/${encodeURIComponent(userName)}`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get quiz questions')
+    }
+
+    const result: ApiResponse<QuizQuestion[]> = await response.json()
+    return result.data || []
+  },
+
+  async submitQuizAnswer(userName: string, questionId: string, answer: string): Promise<QuizAnswerResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/quiz/answer`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ userName, questionId, answer }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to submit quiz answer')
+    }
+
+    const result: ApiResponse<QuizAnswerResponse> = await response.json()
+    if (!result.success || !result.data) {
+      throw new Error(result.message || 'Failed to submit quiz answer')
+    }
+
+    return result.data
+  },
+
+  async getUserQuizScore(userName: string): Promise<QuizScoreResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/quiz/score/${encodeURIComponent(userName)}`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get quiz score')
+    }
+
+    const result: ApiResponse<QuizScoreResponse> = await response.json()
+    if (!result.success || !result.data) {
+      throw new Error(result.message || 'Failed to get quiz score')
+    }
+
+    return result.data
+  },
+
+  async getCombinedScore(userName: string): Promise<CombinedScore> {
+    const response = await fetch(`${API_BASE_URL}/api/combined-score/${encodeURIComponent(userName)}`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get combined score')
+    }
+
+    const result: ApiResponse<CombinedScore> = await response.json()
+    if (!result.success || !result.data) {
+      throw new Error(result.message || 'Failed to get combined score')
+    }
+
+    return result.data
+  },
+
+  async getScoreboard(): Promise<ScoreboardResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/scoreboard`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get scoreboard')
+    }
+
+    const result = await response.json()
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to get scoreboard')
+    }
+
+    return {
+      hasAdminAnswers: result.hasAdminAnswers || false,
+      data: result.data || []
+    }
+  },
+
+  async setQuizCorrectAnswers(answers: Record<string, string>): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/admin/quiz-answers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ answers }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to set quiz correct answers')
+    }
+  },
+
+  async setCorrectAnswers(answers: Record<string, string>): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/admin/set-correct-answers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ answers }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to set correct answers')
+    }
+  },
+
+  async getAdminQuizQuestions(): Promise<AdminQuizQuestion[]> {
+    const response = await fetch(`${API_BASE_URL}/api/admin/quiz-questions`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get quiz questions')
+    }
+
+    const result: ApiResponse<AdminQuizQuestion[]> = await response.json()
+    return result.data || []
+  },
+
+  async getVersion(): Promise<{ backend: string; timestamp: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/version`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to get version')
+    }
+
+    return await response.json()
+  },
 }
+
+export type { QuizQuestion, QuizAnswerResponse, QuizScoreResponse, CombinedScore, ScoreboardEntry, ScoreboardResponse, AdminQuizQuestion }
